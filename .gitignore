@@ -1,0 +1,7 @@
+vendor
+.DS_Store
+**/dist/
+**/node_modules/
+*npm-debug.log
+docs/PRIVATE-NOTES.md
+local.env
