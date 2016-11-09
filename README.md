@@ -28,3 +28,26 @@ The amount data is not currently parsable, nor is the deposit to account informa
 
 ## Technical details
 Most of the actions are written in JavaScript using the default Node.js version 6 environment on Bluemix. One of the actions is written as a shell script and packaged in a Docker container. This shows both the polyglot nature of OpenWhisk, as well as the ability to package any arbitrary program, as is needed in this case to leverage an OCR library.
+
+## Provision services and set environment variables
+Start by copying `template.local.env` to a new `local.env` file. You can fill in additional details as you go through the steps below. The `.gitignore` file will prevent that private file from being pushed to source control if you push modifications to your own fork.
+
+### Set up Cloudant
+Log into the Bluemix console and create a Cloudant instance and name it `checks-db`. You can reuse an existing instance if you already have one. Update `CLOUDANT_INSTANCE` in `local.env` to reflect the name of the Cloudant service instance.
+
+Then set the `CLOUDANT_USERNAME` and `CLOUDANT_PASSWORD` values in `local.env` based on the service credentials for the service.
+
+Log into the Cloudant console and create four databases. Set their names in the `CLOUDANT_ARCHIVED_DATABASE`, `CLOUDANT_AUDITED_DATABASE`, `CLOUDANT_PARSED_DATABASE`, and `CLOUDANT_PROCESSED_DATABASE` variables.
+
+### Set up Object Storage
+Log into the Bluemix console and create an Object Storage instance and name it `checks-os`. Create a container within named `checks`. Update the `local.env` variables for `SWIFT_USER_ID`, `SWIFT_PASSWORD`, `SWIFT_PROJECT_ID`, and `SWIFT_REGION_NAME` accordingly.
+
+### Set up SendGrid
+Log into the Bluemix console and create a SendGrid instance. If you don't want to pay for the minimum plan, you can go to SendGrid.com directly to request a free trial. Follow the developer documentation to configure an API key. Update `local.env` accordingly.
+
+## Set up OpenWhisk actions, triggers, and rules
+If you haven't already, download, install, and test the [`wsk` CLI tool](https://new-console.ng.bluemix.net/openwhisk/cli).
+
+Run the following commands to set up the OpenWhisk resources with a deployment script:
+* Make sure `local.env` is complete. Run `source local.env`.
+* Run the `deploy.sh` script. For example, `./deploy.sh --install`
