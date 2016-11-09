@@ -46,8 +46,19 @@ Log into the Bluemix console and create an Object Storage instance and name it `
 Log into the Bluemix console and create a SendGrid instance. If you don't want to pay for the minimum plan, you can go to SendGrid.com directly to request a free trial. Follow the developer documentation to configure an API key. Update `local.env` accordingly.
 
 ## Set up OpenWhisk actions, triggers, and rules
-If you haven't already, download, install, and test the [`wsk` CLI tool](https://new-console.ng.bluemix.net/openwhisk/cli).
+If you haven't already, download, install, and test the [`wsk` CLI tool](https://new-console.ng.bluemix.net/openwhisk/cli) with your Bluemix account.
 
 Run the following commands to set up the OpenWhisk resources with a deployment script:
 * Make sure `local.env` is complete. Run `source local.env`.
 * Run the `deploy.sh` script. For example, `./deploy.sh --install`
+
+## Running the sample
+At this point the triggers, rules, and actions are in place. The Object Storage polling trigger will run every 20 seconds for half an hour by default (90 invocations). You can change this in the `deploy.sh` script by modifying the `maxTriggers` value.
+
+Open another terminal to start tailing the OpenWhisk logs with `wsk activation poll` so you can see the progress when you start running the sample and are able to debug any issues.
+
+To start the sample, rename the two check images to contain a valid email address that you have access to. That is where the SendGrid notifications will be sent. Then use the Bluemix UI to add those images to your `checks` container.
+
+The `find-new-checks` action will download the images on its next poll (within 20 seconds as set by the alarm trigger) and this will start the sequence of actions.
+
+If all has been successful, you will have 25% and 50% resized copies of the check images as attachments in your `CLOUDANT_ARCHIVED_DATABASE`. You will have the original image as an attachment in your `CLOUDANT_AUDITED_DATABASE`. You will have the OCR parsed from the check and its filename in the `CLOUDANT_PARSED_DATABASE` and you will have the final transaction info (simulating an external system of record) in the `CLOUDANT_PROCESSED_DATABASE`.

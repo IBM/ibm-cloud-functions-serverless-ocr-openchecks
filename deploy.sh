@@ -42,7 +42,7 @@ function install() {
   -p host "$CLOUDANT_USER.cloudant.com"
 
   echo "Creating triggers"
-  $WSK trigger create poll-for-incoming-checks --feed /whisk.system/alarms/alarm --param cron '*/20 * * * * *' --param maxTriggers 6
+  $WSK trigger create poll-for-incoming-checks --feed /whisk.system/alarms/alarm --param cron '*/20 * * * * *' --param maxTriggers 90
   $WSK trigger create check-ready-to-scan --feed /$CURRENT_NAMESPACE/checks-db/changes --param dbname "$CLOUDANT_AUDITED_DATABASE" --param includeDocs true
   $WSK trigger create check-ready-for-deposit --feed /$CURRENT_NAMESPACE/checks-db/changes --param dbname "$CLOUDANT_PARSED_DATABASE" --param includeDocs true
   
