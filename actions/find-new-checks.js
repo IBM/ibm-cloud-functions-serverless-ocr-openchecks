@@ -29,7 +29,7 @@ var fs = require('fs');
  * @param   params.CLOUDANT_USER      Cloudant username (set once at action update time)
  * @param   params.CLOUDANT_PASS      Cloudant password (set once at action update time)
  * @param   params.SENDGRID_API_KEY   Cloudant password (set once at action update time)
- * @param   params.CURRENT_NAMESPACE  The current namespace so we can call the save action by name 
+ * @param   params.CURRENT_NAMESPACE  The current namespace so we can call the save action by name
  * @return                            Standard OpenWhisk success/error response
  */
 function main(params) {
@@ -43,16 +43,16 @@ function main(params) {
     params.SWIFT_PASSWORD
   );
 
-  os.authenticate(function (err, response, body) {
+  os.authenticate(function(err, response, body) {
     if (err) {
       console.log("Authentication failure", err);
       whisk.done(null, err);
     } else {
-      os.listFiles(params.SWIFT_INCOMING_CONTAINER_NAME, function (err, response, files) {
+      os.listFiles(params.SWIFT_INCOMING_CONTAINER_NAME, function(err, response, files) {
         console.log(files);
         console.log("Found", files.length, "files");
-        var tasks = files.map(function (file) {
-          return function (callback) {
+        var tasks = files.map(function(file) {
+          return function(callback) {
             asyncCallSaveCheckImagesAction(
               "/" + params.CURRENT_NAMESPACE + "/save-check-images",
               file.name,
@@ -62,7 +62,7 @@ function main(params) {
             );
           };
         });
-        async.waterfall(tasks, function (err, result) {
+        async.waterfall(tasks, function(err, result) {
           whisk.done(undefined, err);
         });
       });
@@ -92,7 +92,7 @@ function asyncCallSaveCheckImagesAction(actionName, fileName, contentType, lastM
       lastModified: lastModified
     },
     blocking: false,
-    next: function (error, activation) {
+    next: function(error, activation) {
       if (error) {
         console.log(actionName, "[error]", error);
       } else {
@@ -123,7 +123,7 @@ function ObjectStorage(region, projectId, userId, password) {
     throw new Error("Invalid Region");
   }
 
-  self.authenticate = function (callback) {
+  self.authenticate = function(callback) {
     request({
       uri: "https://identity.open.softlayer.com/v3/auth/tokens",
       method: 'POST',
@@ -131,7 +131,7 @@ function ObjectStorage(region, projectId, userId, password) {
         "auth": {
           "identity": {
             "methods": [
-                "password"
+              "password"
             ],
             "password": {
               "user": {
@@ -147,7 +147,7 @@ function ObjectStorage(region, projectId, userId, password) {
           }
         }
       }
-    }, function (err, response, body) {
+    }, function(err, response, body) {
       if (!err) {
         self.token = response.headers["x-subject-token"];
       }
@@ -155,7 +155,7 @@ function ObjectStorage(region, projectId, userId, password) {
     });
   };
 
-  self.listFiles = function (container, callback) {
+  self.listFiles = function(container, callback) {
     request({
       uri: self.baseUrl + container,
       method: 'GET',

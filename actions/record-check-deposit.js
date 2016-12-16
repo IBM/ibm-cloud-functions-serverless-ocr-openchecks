@@ -27,34 +27,34 @@ var async = require('async');
  * 3. Send an email notification to the customer that their check has been processed.
  *
  * @param   params.id                            The id of the record in the Cloudant 'processed' database
- * @param   params.CLOUDANT_USER                 Cloudant username 
- * @param   params.CLOUDANT_PASS                 Cloudant password 
+ * @param   params.CLOUDANT_USER                 Cloudant username
+ * @param   params.CLOUDANT_PASS                 Cloudant password
  * @param   params.CLOUDANT_PARSED_DATABASE      Cloudant database to retrieve the parsed from
  * @param   params.CLOUDANT_PROCESSSED_DATABASE  Cloudant database to store the processed data to
- * @param   params.SENDGRID_API_KEY              Cloudant password 
+ * @param   params.SENDGRID_API_KEY              Cloudant password
  * @param   params.SENDGRID_FROM_ADDRESS         Address to set as sender
  * @return                                       Standard OpenWhisk success/error response
  */
 function main(params) {
-    
-    // Configure database connection
-    console.log(params);
-    console.log(params.id);
-    var cloudant = new Cloudant({
-      account:  params.CLOUDANT_USER,
-      password: params.CLOUDANT_PASS
-    });
-    var parsedDb = cloudant.db.use(params.CLOUDANT_PARSED_DATABASE);
-    var processedDb = cloudant.db.use(params.CLOUDANT_PROCESSED_DATABASE);
 
-    if (!params.deleted) {
+  // Configure database connection
+  console.log(params);
+  console.log(params.id);
+  var cloudant = new Cloudant({
+    account: params.CLOUDANT_USER,
+    password: params.CLOUDANT_PASS
+  });
+  var parsedDb = cloudant.db.use(params.CLOUDANT_PARSED_DATABASE);
+  var processedDb = cloudant.db.use(params.CLOUDANT_PROCESSED_DATABASE);
 
-      async.waterfall([
+  if (!params.deleted) {
+
+    async.waterfall([
 
         // Fetch the document inserted into Cloudant
-        function (callback) {
+        function(callback) {
           console.log('[record-check-deposit.js.main] Fetching parsed data');
-          parsedDb.get(params.id, function (err, body, head) {
+          parsedDb.get(params.id, function(err, body, head) {
             if (err) {
               console.log('[record-check-deposit.main] error: parsedDb data');
               return callback(err);
@@ -75,9 +75,9 @@ function main(params) {
         },
 
         // Set check state to processed in the processed database.
-        function (processed, callback) {
+        function(processed, callback) {
           console.log('[record-check-deposit.main] Updating the processed database');
-          processedDb.insert(processed, function (err, body, head) {
+          processedDb.insert(processed, function(err, body, head) {
             if (err) {
               console.log('[record-check-deposit.main] error: processedDb');
               console.log(err);
@@ -91,7 +91,7 @@ function main(params) {
         },
 
         // Send email notification, simulating connectivity to backend system and notifying customer.
-        function (processed, callback) {
+        function(processed, callback) {
           console.log('[record-check-deposit.main] Sending notification email');
 
           subject = 'Check deposit accepted';
@@ -103,42 +103,40 @@ function main(params) {
 
           //return callback(null);
 
-          request(
-            {
-              url: 'https://api.sendgrid.com/v3/mail/send',
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer ' + params.SENDGRID_API_KEY
-              },
-              body: '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "' + params.SENDGRID_FROM_ADDRESS + '"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}'
-            }, function (err, response, body) {
-              if (err) {
-                console.log('[record-check-deposit.main] error: ');
-                console.log(err);
-                callback(err);
-                return;
-              } else {
-                console.log('[record-check-deposit.main] success: ');
-                console.log(body);
-                callback(null);
-                return;
-              }
+          request({
+            url: 'https://api.sendgrid.com/v3/mail/send',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + params.SENDGRID_API_KEY
+            },
+            body: '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "' + params.SENDGRID_FROM_ADDRESS + '"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}'
+          }, function(err, response, body) {
+            if (err) {
+              console.log('[record-check-deposit.main] error: ');
+              console.log(err);
+              callback(err);
+              return;
+            } else {
+              console.log('[record-check-deposit.main] success: ');
+              console.log(body);
+              callback(null);
+              return;
             }
-          );
+          });
 
         }
 
       ],
 
-        function (err, result) {
-          if (err) {
-            console.log("[KO]", err);
-          } else {
-            console.log("[OK]");
-          }
-          whisk.done(null, err);
+      function(err, result) {
+        if (err) {
+          console.log("[KO]", err);
+        } else {
+          console.log("[OK]");
         }
+        whisk.done(null, err);
+      }
     );
 
   }
@@ -153,6 +151,6 @@ function main(params) {
  * @return               The formatted string
  */
 function format(timestamp) {
-    var warranty_expiration_date = new Date(timestamp * 1000);
-    return (warranty_expiration_date.getMonth()+1) + '/' + warranty_expiration_date.getDate() + '/' + warranty_expiration_date.getFullYear();
+  var warranty_expiration_date = new Date(timestamp * 1000);
+  return (warranty_expiration_date.getMonth() + 1) + '/' + warranty_expiration_date.getDate() + '/' + warranty_expiration_date.getFullYear();
 }
