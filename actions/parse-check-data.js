@@ -27,7 +27,7 @@ var fs = require('fs');
  * 2. Process the image for deposit to account, routing number and move it to
  *    another 'parsed' database with metadata and a confidence score.
  *
- * @param   params.id                        The id of the inserted record in the Cloudant 'audit' database that triggered this action
+ * @param   params._id                        The id of the inserted record in the Cloudant 'audit' database that triggered this action
  * @param   params.CLOUDANT_USER             Cloudant username
  * @param   params.CLOUDANT_PASS             Cloudant password
  * @param   params.CLOUDANT_AUDITED_DATABASE Cloudant database to store the original copy to
@@ -39,12 +39,10 @@ function main(params) {
 
   // Configure database connection
   console.log(params);
-  console.log(params.id);
   var cloudant = new Cloudant({
     account: params.CLOUDANT_USER,
     password: params.CLOUDANT_PASS
   });
-  var auditedDb = cloudant.db.use(params.CLOUDANT_AUDITED_DATABASE);
   var parsedDb = cloudant.db.use(params.CLOUDANT_PARSED_DATABASE);
 
   // Data to extract from check and send along to the transaction system to process.
@@ -68,7 +66,7 @@ function main(params) {
             params.CLOUDANT_USER,
             params.CLOUDANT_PASS,
             params.CLOUDANT_AUDITED_DATABASE,
-            params.id,
+            params._id,
             callback
           );
         },
@@ -82,14 +80,14 @@ function main(params) {
           fromAccount = activation.result.result.account;
           routingNumber = activation.result.result.routing;
 
-          var values = params.id.split('^');
+          var values = params._id.split('^');
           email = values[0];
           toAccount = values[1];
           amount = values[2];
           timestamp = values[3].substring(0, values[3].length - 4); // Remove file extension
 
           parsedDb.insert({
-              _id: params.id,
+              _id: params._id,
               toAccount: toAccount,
               fromAccount: fromAccount,
               routingNumber: routingNumber,

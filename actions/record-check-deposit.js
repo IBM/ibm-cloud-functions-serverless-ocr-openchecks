@@ -26,7 +26,7 @@ var async = require('async');
  * 2. Insert it into the 'processed' database which an external system would use, or otherwise invoke that other system.
  * 3. Send an email notification to the customer that their check has been processed.
  *
- * @param   params.id                            The id of the record in the Cloudant 'processed' database
+ * @param   params._id                            The id of the record in the Cloudant 'processed' database
  * @param   params.CLOUDANT_USER                 Cloudant username
  * @param   params.CLOUDANT_PASS                 Cloudant password
  * @param   params.CLOUDANT_PARSED_DATABASE      Cloudant database to retrieve the parsed from
@@ -39,43 +39,27 @@ function main(params) {
 
   // Configure database connection
   console.log(params);
-  console.log(params.id);
   var cloudant = new Cloudant({
     account: params.CLOUDANT_USER,
     password: params.CLOUDANT_PASS
   });
-  var parsedDb = cloudant.db.use(params.CLOUDANT_PARSED_DATABASE);
   var processedDb = cloudant.db.use(params.CLOUDANT_PROCESSED_DATABASE);
 
   if (!params.deleted) {
 
+    var processed = {};
+    processed._id = params._id;
+    processed.toAccount = params.toAccount;
+    processed.fromAccount = params.fromAccount;
+    processed.routingNumber = params.routingNumber;
+    processed.email = params.email;
+    processed.amount = params.amount;
+    processed.timestamp = params.timestamp;
+
     async.waterfall([
 
-        // Fetch the document inserted into Cloudant
+        // Insert the check data into the processed database.
         function(callback) {
-          console.log('[record-check-deposit.js.main] Fetching parsed data');
-          parsedDb.get(params.id, function(err, body, head) {
-            if (err) {
-              console.log('[record-check-deposit.main] error: parsedDb data');
-              return callback(err);
-            } else {
-              console.log('[record-check-deposit.main] success: parsedDb data');
-              console.log(head);
-              var processed = {};
-              processed._id = body._id;
-              processed.toAccount = body.toAccount;
-              processed.fromAccount = body.fromAccount;
-              processed.routingNumber = body.routingNumber;
-              processed.email = body.email;
-              processed.amount = body.amount;
-              processed.timestamp = body.timestamp;
-              return callback(null, processed);
-            }
-          });
-        },
-
-        // Set check state to processed in the processed database.
-        function(processed, callback) {
           console.log('[record-check-deposit.main] Updating the processed database');
           processedDb.insert(processed, function(err, body, head) {
             if (err) {
@@ -100,8 +84,6 @@ function main(params) {
           content += 'For reference, the check number and routing number were: ' + processed.fromAccount + '-' + processed.routingNumber + '. ';
 
           console.log("Mailing: " + '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "check.deposit@catabase.org"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}');
-
-          //return callback(null);
 
           request({
             url: 'https://api.sendgrid.com/v3/mail/send',

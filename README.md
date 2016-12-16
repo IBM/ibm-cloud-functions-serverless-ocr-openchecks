@@ -1,6 +1,6 @@
 # Project OpenChecks
 
-This proof of concept shows how OpenWhisk can be used for an event-driven architecture that processes the deposit of checks to a bank account using optical character recognition.
+This proof of concept shows how OpenWhisk can be used for an event-driven, serverless architecture that processes the deposit of checks to a bank account using optical character recognition.
 
 It is currently built on the public Bluemix OpenWhisk service and relies on Cloudant and SoftLayer Object Storage. On premises, it could use CouchDB and OpenStack Swift. Other storage services could include FileNet or Cleversafe. Tesseract provides the OCR library.
 
