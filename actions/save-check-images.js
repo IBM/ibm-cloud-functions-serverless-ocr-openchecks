@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 IBM Corp. All Rights Reserved.
+ * Copyright 2016-2017 IBM Corp. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+var openwhisk = require('openwhisk');
 var request = require('request');
 var async = require('async');
 var fs = require('fs');
+var uuid = require('node-uuid');
 var gm = require('gm').subClass({
   imageMagick: true
 });
@@ -67,192 +69,196 @@ function main(params) {
 
   // This chains together the following functions serially, so that if there's an error along the way,
   // the check isn't deleted and this can be called again idempotently.
-  async.waterfall([
+  return new Promise(function(resolve, reject) {
+    async.waterfall([
 
-      // Authenticate to object storage
-      function(callback) {
-        console.log("Authenticating...");
-        os.authenticate(function(err, response, body) {
-          return callback(err);
-        });
-      },
-
-      // Get the file on disk as a temp file
-      function(callback) {
-        console.log("Downloading", params.fileName);
-        os.downloadFile(params.SWIFT_INCOMING_CONTAINER_NAME, params.fileName, fs.createWriteStream(params.fileName), function(err) {
-          return callback(err);
-        });
-      },
-
-      // Copy and resize the file to two smaller versions
-      function(callback) {
-
-        // Inject this into String
-        // https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
-        if (!String.prototype.endsWith) {
-          String.prototype.endsWith = function(searchString, position) {
-            var subjectString = this.toString();
-            if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
-              position = subjectString.length;
-            }
-            position -= searchString.length;
-            var lastIndex = subjectString.indexOf(searchString, position);
-            return lastIndex !== -1 && lastIndex === position;
-          };
-        }
-
-        console.log("Creating resized images.");
-        if (params.fileName.toLowerCase().endsWith(".jpg") || params.fileName.toLowerCase().endsWith(".png")) {
-          console.log("Resizing image to 300px wide");
-          gm(params.fileName).resize(300).write(medFileName, function(err) {
+        // Authenticate to object storage
+        function(callback) {
+          console.log("Authenticating...");
+          os.authenticate(function(err, response, body) {
             return callback(err);
           });
-          console.log("Resizing image to 150px wide");
-          gm(params.fileName).resize(150).write(smFileName, function(err) {
+        },
+
+        // Get the file on disk as a temp file
+        function(callback) {
+          console.log("Downloading", params.fileName);
+          os.downloadFile(params.SWIFT_INCOMING_CONTAINER_NAME, params.fileName, fs.createWriteStream(params.fileName), function(err) {
             return callback(err);
           });
-          return callback(null);
-        } else {
-          return callback("File is not an image.");
-        }
-      },
+        },
 
-      // Open original file to memory and send it to the next function
-      function(callback) {
-        console.log("Opening original file");
-        fs.readFile(params.fileName, function(err, data) {
-          if (err) {
-            console.log("Error reading original file.");
-            return callback(err);
-          } else {
-            console.log("Success reading original file.");
-            return callback(null, data);
+        // Copy and resize the file to two smaller versions
+        function(callback) {
+
+          // Inject this into String
+          // https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
+          if (!String.prototype.endsWith) {
+            String.prototype.endsWith = function(searchString, position) {
+              var subjectString = this.toString();
+              if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
+                position = subjectString.length;
+              }
+              position -= searchString.length;
+              var lastIndex = subjectString.indexOf(searchString, position);
+              return lastIndex !== -1 && lastIndex === position;
+            };
           }
-        });
-      },
 
-      // Save original image data to Cloudant with an enriched name
-      function(data, callback) {
-        console.log("Attempting insert of original image into the audited database.");
-        auditedDb.multipart.insert({
-            _id: params.fileName
-          }, [{
-            name: params.fileName,
-            data: data,
-            content_type: params.contentType
-          }],
-          params.fileName,
-          function(err, body) {
-            if (err && err.statusCode != 409) {
-              console.log("Error with original file insert.");
+          console.log("Creating resized images.");
+          if (params.fileName.toLowerCase().endsWith(".jpg") || params.fileName.toLowerCase().endsWith(".png")) {
+            console.log("Resizing image to 300px wide");
+            gm(params.fileName).resize(300).write(medFileName, function(err) {
               return callback(err);
-            } else {
-              console.log("Success with original file insert.");
-              return callback(null);
-            }
-          }
-        );
-      },
-
-      // Open medium file to memory and send it to the next function
-      function(callback) {
-        console.log("Opening medium file");
-        fs.readFile(medFileName, function(err, data) {
-          if (err) {
-            console.log("Error reading medium file.");
-            return callback(err);
-          } else {
-            console.log("Success reading medium file.");
-            return callback(null, data);
-          }
-        });
-      },
-
-      // Save medium file to Cloudant with an enriched name
-      function(data, callback) {
-        console.log("Attempting Cloudant insert of medium image into the archived database.");
-        archivedDb.multipart.insert({
-            _id: medFileName
-          }, [{
-            name: medFileName,
-            data: data,
-            content_type: params.contentType
-          }],
-          medFileName,
-          function(err, body) {
-            if (err && err.statusCode != 409) {
-              console.log("Error with Cloudant medium insert.");
+            });
+            console.log("Resizing image to 150px wide");
+            gm(params.fileName).resize(150).write(smFileName, function(err) {
               return callback(err);
-            } else {
-              console.log("Success with Cloudant medium file insert.");
-              return callback(null);
-            }
-          }
-        );
-      },
-
-      // Open small file to memory and send it to the next function
-      function(callback) {
-        console.log("Opening small file");
-        fs.readFile(smFileName, function(err, data) {
-          if (err) {
-            console.log("Error reading small file.");
-            return callback(err);
-          } else {
-            console.log("Success reading small file.");
-            return callback(null, data);
-          }
-        });
-      },
-
-      // Save small file to Cloudant with an enriched name
-      function(data, callback) {
-        console.log("Attempting Cloudant insert of small image into the archived database.");
-        archivedDb.multipart.insert({
-            _id: smFileName
-          }, [{
-            name: smFileName,
-            data: data,
-            content_type: params.contentType
-          }],
-          smFileName,
-          function(err, body) {
-            if (err && err.statusCode != 409) {
-              console.log("Error with Cloudant small file insert.");
-              return callback(err);
-            } else {
-              console.log("Success with Cloudant small file insert.");
-              return callback(null);
-            }
-          }
-        );
-      },
-
-      // When all the steps above have completed successfully, delete the file from the incoming folder
-      function(callback) {
-        console.log("Deleting processed file from", params.SWIFT_INCOMING_CONTAINER_NAME);
-        os.deleteFile(params.SWIFT_INCOMING_CONTAINER_NAME, params.fileName, callback, function(err) {
-          if (err) {
-            return callback(err);
-          } else {
+            });
             return callback(null);
+          } else {
+            return callback("File is not an image.");
           }
-        });
-      }
+        },
 
-    ],
-    function(err, result) {
-      if (err) {
-        console.log("[KO]", err);
-      } else {
-        console.log("[OK]");
-      }
-      whisk.done(null, err);
-    }
-  );
+        // Open original file to memory and send it to the next function
+        function(callback) {
+          console.log("Opening original file");
+          fs.readFile(params.fileName, function(err, data) {
+            if (err) {
+              console.log("Error reading original file.");
+              return callback(err);
+            } else {
+              console.log("Success reading original file.");
+              return callback(null, data);
+            }
+          });
+        },
 
-  return whisk.async();
+        // Save original image data to Cloudant with an enriched name
+        function(data, callback) {
+          console.log("Attempting insert of original image into the audited database.");
+          auditedDb.multipart.insert({
+              _id: params.fileName
+            }, [{
+              name: params.fileName,
+              data: data,
+              content_type: params.contentType
+            }],
+            params.fileName,
+            function(err, body) {
+              if (err && err.statusCode != 409) {
+                console.log("Error with original file insert.");
+                return callback(err);
+              } else {
+                console.log("Success with original file insert.");
+                return callback(null);
+              }
+            }
+          );
+        },
+
+        // Open medium file to memory and send it to the next function
+        function(callback) {
+          console.log("Opening medium file");
+          fs.readFile(medFileName, function(err, data) {
+            if (err) {
+              console.log("Error reading medium file.");
+              return callback(err);
+            } else {
+              console.log("Success reading medium file.");
+              return callback(null, data);
+            }
+          });
+        },
+
+        // Save medium file to Cloudant with an enriched name
+        function(data, callback) {
+          console.log("Attempting Cloudant insert of medium image into the archived database.");
+          archivedDb.multipart.insert({
+              _id: medFileName
+            }, [{
+              name: medFileName,
+              data: data,
+              content_type: params.contentType
+            }],
+            medFileName,
+            function(err, body) {
+              if (err && err.statusCode != 409) {
+                console.log("Error with Cloudant medium insert.");
+                return callback(err);
+              } else {
+                console.log("Success with Cloudant medium file insert.");
+                return callback(null);
+              }
+            }
+          );
+        },
+
+        // Open small file to memory and send it to the next function
+        function(callback) {
+          console.log("Opening small file");
+          fs.readFile(smFileName, function(err, data) {
+            if (err) {
+              console.log("Error reading small file.");
+              return callback(err);
+            } else {
+              console.log("Success reading small file.");
+              return callback(null, data);
+            }
+          });
+        },
+
+        // Save small file to Cloudant with an enriched name
+        function(data, callback) {
+          console.log("Attempting Cloudant insert of small image into the archived database.");
+          archivedDb.multipart.insert({
+              _id: smFileName
+            }, [{
+              name: smFileName,
+              data: data,
+              content_type: params.contentType
+            }],
+            smFileName,
+            function(err, body) {
+              if (err && err.statusCode != 409) {
+                console.log("Error with Cloudant small file insert.");
+                return callback(err);
+              } else {
+                console.log("Success with Cloudant small file insert.");
+                return callback(null);
+              }
+            }
+          );
+        },
+
+        // When all the steps above have completed successfully, delete the file from the incoming folder
+        function(callback) {
+          console.log("Deleting processed file from", params.SWIFT_INCOMING_CONTAINER_NAME);
+          os.deleteFile(params.SWIFT_INCOMING_CONTAINER_NAME, params.fileName, callback, function(err) {
+            if (err) {
+              return callback(err);
+            } else {
+              return callback(null);
+            }
+          });
+        }
+
+      ],
+      function(err, result) {
+        if (err) {
+          console.log("Error", err);
+          reject(err);
+        } else {
+          resolve({
+            status: "Success"
+          });
+        }
+      }
+    );
+
+  });
+
 }
 
 /**

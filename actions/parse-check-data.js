@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 IBM Corp. All Rights Reserved.
+ * Copyright 2016-2017 IBM Corp. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+var openwhisk = require('openwhisk');
 var Cloudant = require('cloudant');
 var async = require('async');
 var fs = require('fs');
@@ -27,15 +28,16 @@ var fs = require('fs');
  * 2. Process the image for deposit to account, routing number and move it to
  *    another 'parsed' database with metadata and a confidence score.
  *
- * @param   params._id                        The id of the inserted record in the Cloudant 'audit' database that triggered this action
+ * @param   params._id                       The id of the inserted record in the Cloudant 'audit' database that triggered this action
  * @param   params.CLOUDANT_USER             Cloudant username
  * @param   params.CLOUDANT_PASS             Cloudant password
  * @param   params.CLOUDANT_AUDITED_DATABASE Cloudant database to store the original copy to
  * @param   params.CLOUDANT_PARSED_DATABASE  Cloudant database to store the parsed check data to
- * @param   params.CURRENT_NAMESPACE         The current namespace so we can call the OCR action by name
  * @return                                   Standard OpenWhisk success/error response
  */
 function main(params) {
+
+  var wsk = openwhisk();
 
   // Configure database connection
   console.log(params);
@@ -57,73 +59,75 @@ function main(params) {
   // We're only interested in changes to the database if they're inserts
   if (!params.deleted) {
 
-    async.waterfall([
+    return new Promise(function(resolve, reject) {
+      async.waterfall([
 
-        // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
-        function(callback) {
-          console.log('[parse-check-data.main] Executing OCR parse of check');
-          asyncCallOcrParseAction("/" + params.CURRENT_NAMESPACE + "/parse-check-with-ocr",
-            params.CLOUDANT_USER,
-            params.CLOUDANT_PASS,
-            params.CLOUDANT_AUDITED_DATABASE,
-            params._id,
-            callback
-          );
-        },
+          // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
+          function(callback) {
+            console.log('[parse-check-data.main] Executing OCR parse of check');
+            asyncCallOcrParseAction("/_/parse-check-with-ocr",
+              params.CLOUDANT_USER,
+              params.CLOUDANT_PASS,
+              params.CLOUDANT_AUDITED_DATABASE,
+              params._id,
+              callback
+            );
+          },
 
-        // Insert data into the parsed database.
-        function(activation, callback) {
-          console.log('[parse-check-data.main] Inserting into the parsed database');
+          // Insert data into the parsed database.
+          function(activation, callback) {
+            console.log('[parse-check-data.main] Inserting into the parsed database');
 
-          console.log(activation);
+            console.log(activation);
 
-          fromAccount = activation.result.result.account;
-          routingNumber = activation.result.result.routing;
+            fromAccount = activation.result.result.account;
+            routingNumber = activation.result.result.routing;
 
-          var values = params._id.split('^');
-          email = values[0];
-          toAccount = values[1];
-          amount = values[2];
-          timestamp = values[3].substring(0, values[3].length - 4); // Remove file extension
+            var values = params._id.split('^');
+            email = values[0];
+            toAccount = values[1];
+            amount = values[2];
+            timestamp = values[3].substring(0, values[3].length - 4); // Remove file extension
 
-          parsedDb.insert({
-              _id: params._id,
-              toAccount: toAccount,
-              fromAccount: fromAccount,
-              routingNumber: routingNumber,
-              email: email,
-              amount: amount,
-              timestamp: timestamp
-            },
-            function(err, body, head) {
-              if (err) {
-                console.log('[parse-check-data.main] error: parsedDb');
-                console.log(err);
-                return callback(err);
-              } else {
-                console.log('[parse-check-data.main] success: parsedDb');
-                console.log(body);
-                return callback(null);
+            parsedDb.insert({
+                _id: params._id,
+                toAccount: toAccount,
+                fromAccount: fromAccount,
+                routingNumber: routingNumber,
+                email: email,
+                amount: amount,
+                timestamp: timestamp
+              },
+              function(err, body, head) {
+                if (err) {
+                  console.log('[parse-check-data.main] error: parsedDb');
+                  console.log(err);
+                  return callback(err);
+                } else {
+                  console.log('[parse-check-data.main] success: parsedDb');
+                  console.log(body);
+                  return callback(null);
+                }
               }
-            }
-          );
-        },
+            );
+          },
 
-      ],
+        ],
 
-      function(err, result) {
-        if (err) {
-          console.log("[KO]", err);
-        } else {
-          console.log("[OK]");
+        function(err, result) {
+          if (err) {
+            console.log("Error", err);
+            reject(err);
+          } else {
+            resolve({
+              status: "Success"
+            });
+          }
         }
-        whisk.done(null, err);
-      }
-    );
 
+      );
+    });
   }
-
-  return whisk.async();
 }
 
 /**
@@ -138,23 +142,31 @@ function main(params) {
  */
 function asyncCallOcrParseAction(actionName, cloudantUser, cloudantPass, database, id, callback) {
   console.log("Calling", actionName, "for", id);
-  whisk.invoke({
-    name: actionName,
-    parameters: {
-      CLOUDANT_USER: cloudantUser,
-      CLOUDANT_PASS: cloudantPass,
-      CLOUDANT_AUDITED_DATABASE: database,
-      IMAGE_ID: id
-    },
-    blocking: true,
-    next: function(err, activation) {
-      if (err) {
-        console.log(actionName, "[error]", error);
-        return callback(err);
-      } else {
+
+  var wsk = openwhisk();
+
+  return new Promise(function(resolve, reject) {
+
+    wsk.actions.invoke({
+      "actionName": actionName,
+      "params": {
+        CLOUDANT_USER: cloudantUser,
+        CLOUDANT_PASS: cloudantPass,
+        CLOUDANT_AUDITED_DATABASE: database,
+        IMAGE_ID: id
+      },
+    }).then(
+      function(activation) {
         console.log(actionName, "[activation]", activation);
-        return callback(null, activation);
+        resolve(activation);
       }
-    }
+    ).catch(
+      function(error) {
+        console.log(actionName, "[error]", error);
+        reject(error);
+      }
+    );
+
   });
+
 }

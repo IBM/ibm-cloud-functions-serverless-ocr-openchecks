@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 IBM Corp. All Rights Reserved.
+ * Copyright 2016-2017 IBM Corp. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+var openwhisk = require('openwhisk');
 var request = require('request');
 var async = require('async');
 var fs = require('fs');
@@ -29,11 +30,12 @@ var fs = require('fs');
  * @param   params.CLOUDANT_USER      Cloudant username (set once at action update time)
  * @param   params.CLOUDANT_PASS      Cloudant password (set once at action update time)
  * @param   params.SENDGRID_API_KEY   Cloudant password (set once at action update time)
- * @param   params.CURRENT_NAMESPACE  The current namespace so we can call the save action by name
  * @return                            Standard OpenWhisk success/error response
  */
 function main(params) {
   console.log("Retrieving file list");
+
+  var wsk = openwhisk();
 
   // Configure object storage connection
   var os = new ObjectStorage(
@@ -43,33 +45,44 @@ function main(params) {
     params.SWIFT_PASSWORD
   );
 
-  os.authenticate(function(err, response, body) {
-    if (err) {
-      console.log("Authentication failure", err);
-      whisk.done(null, err);
-    } else {
-      os.listFiles(params.SWIFT_INCOMING_CONTAINER_NAME, function(err, response, files) {
-        console.log(files);
-        console.log("Found", files.length, "files");
-        var tasks = files.map(function(file) {
-          return function(callback) {
-            asyncCallSaveCheckImagesAction(
-              "/" + params.CURRENT_NAMESPACE + "/save-check-images",
-              file.name,
-              file.content_type,
-              file.last_modified,
-              callback
-            );
-          };
+  return new Promise(function(resolve, reject) {
+    os.authenticate(function(err, response, body) {
+      if (err) {
+        console.log("Authentication failure", err);
+        whisk.done(null, err);
+      } else {
+        os.listFiles(params.SWIFT_INCOMING_CONTAINER_NAME, function(err, response, files) {
+          console.log(files);
+          console.log("Found", files.length, "files");
+
+          var tasks = files.map(function(file) {
+            return function(callback) {
+              asyncCallSaveCheckImagesAction(
+                "/_/save-check-images",
+                file.name,
+                file.content_type,
+                file.last_modified,
+                callback
+              );
+            };
+          });
+
+          async.waterfall(tasks, function(err, result) {
+            if (err) {
+              console.log("Error", err);
+              reject(err);
+            } else {
+              resolve({
+                status: "Success"
+              });
+            }
+          });
+
         });
-        async.waterfall(tasks, function(err, result) {
-          whisk.done(undefined, err);
-        });
-      });
-    }
+      }
+    });
   });
 
-  return whisk.async();
 }
 
 /**
@@ -84,23 +97,30 @@ function main(params) {
  */
 function asyncCallSaveCheckImagesAction(actionName, fileName, contentType, lastModified, callback) {
   console.log("Calling", actionName, "for", fileName);
-  whisk.invoke({
-    name: actionName,
-    parameters: {
-      fileName: fileName,
-      contentType: contentType,
-      lastModified: lastModified
-    },
-    blocking: false,
-    next: function(error, activation) {
-      if (error) {
-        console.log(actionName, "[error]", error);
-      } else {
+
+  var wsk = openwhisk();
+
+  return new Promise(function(resolve, reject) {
+    wsk.actions.invoke({
+      "actionName": actionName,
+      "params": {
+        fileName: fileName,
+        contentType: contentType,
+        lastModified: lastModified
+      },
+    }).then(
+      function(activation) {
         console.log(actionName, "[activation]", activation);
+        resolve(activation);
       }
-      callback(error);
-    }
+    ).catch(
+      function(error) {
+        console.log(actionName, "[error]", error);
+        reject(error);
+      }
+    );
   });
+
 }
 
 /**
