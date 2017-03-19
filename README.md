@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/krook/openchecks.svg?branch=master)](https://travis-ci.org/krook/openchecks)
+
 # Project OpenChecks
 
 This proof of concept shows how OpenWhisk can be used for an event-driven, serverless architecture that processes the deposit of checks to a bank account using optical character recognition.
