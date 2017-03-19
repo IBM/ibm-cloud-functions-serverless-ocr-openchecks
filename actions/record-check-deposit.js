@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 IBM Corp. All Rights Reserved.
+ * Copyright 2016-2017 IBM Corp. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+var openwhisk = require('openwhisk');
 var Cloudant = require('cloudant');
 var request = require('request');
 var async = require('async');
@@ -37,6 +38,8 @@ var async = require('async');
  */
 function main(params) {
 
+  var wsk = openwhisk();
+
   // Configure database connection
   console.log(params);
   var cloudant = new Cloudant({
@@ -56,74 +59,78 @@ function main(params) {
     processed.amount = params.amount;
     processed.timestamp = params.timestamp;
 
-    async.waterfall([
+    return new Promise(function(resolve, reject) {
+      async.waterfall([
 
-        // Insert the check data into the processed database.
-        function(callback) {
-          console.log('[record-check-deposit.main] Updating the processed database');
-          processedDb.insert(processed, function(err, body, head) {
-            if (err) {
-              console.log('[record-check-deposit.main] error: processedDb');
-              console.log(err);
-              return callback(err);
-            } else {
-              console.log('[record-check-deposit.main] success: processedDb');
-              console.log(body);
-              return callback(null, processed);
-            }
-          });
-        },
+          // Insert the check data into the processed database.
+          function(callback) {
+            console.log('[record-check-deposit.main] Updating the processed database');
+            processedDb.insert(processed, function(err, body, head) {
+              if (err) {
+                console.log('[record-check-deposit.main] error: processedDb');
+                console.log(err);
+                return callback(err);
+              } else {
+                console.log('[record-check-deposit.main] success: processedDb');
+                console.log(body);
+                return callback(null, processed);
+              }
+            });
+          },
 
-        // Send email notification, simulating connectivity to backend system and notifying customer.
-        function(processed, callback) {
-          console.log('[record-check-deposit.main] Sending notification email');
+          // Send email notification, simulating connectivity to backend system and notifying customer.
+          function(processed, callback) {
+            console.log('[record-check-deposit.main] Sending notification email');
 
-          subject = 'Check deposit accepted';
-          content = 'Hello, ';
-          content += 'your deposit for $' + processed.amount + ' was accepted into your account ' + processed.toAccount + ' on ' + format(processed.timestamp) + '. ';
-          content += 'For reference, the check number and routing number were: ' + processed.fromAccount + '-' + processed.routingNumber + '. ';
+            subject = 'Check deposit accepted';
+            content = 'Hello, ';
+            content += 'your deposit for $' + processed.amount + ' was accepted into your account ' + processed.toAccount + ' on ' + format(processed.timestamp) + '. ';
+            content += 'For reference, the check number and routing number were: ' + processed.fromAccount + '-' + processed.routingNumber + '. ';
 
-          console.log("Mailing: " + '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "check.deposit@catabase.org"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}');
+            console.log("Mailing: " + '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "check.deposit@catabase.org"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}');
 
-          request({
-            url: 'https://api.sendgrid.com/v3/mail/send',
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + params.SENDGRID_API_KEY
-            },
-            body: '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "' + params.SENDGRID_FROM_ADDRESS + '"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}'
-          }, function(err, response, body) {
-            if (err) {
-              console.log('[record-check-deposit.main] error: ');
-              console.log(err);
-              callback(err);
-              return;
-            } else {
-              console.log('[record-check-deposit.main] success: ');
-              console.log(body);
-              callback(null);
-              return;
-            }
-          });
+            request({
+              url: 'https://api.sendgrid.com/v3/mail/send',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + params.SENDGRID_API_KEY
+              },
+              body: '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "' + params.SENDGRID_FROM_ADDRESS + '"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}'
+            }, function(err, response, body) {
+              if (err) {
+                console.log('[record-check-deposit.main] error: ');
+                console.log(err);
+                callback(err);
+                return;
+              } else {
+                console.log('[record-check-deposit.main] success: ');
+                console.log(body);
+                callback(null);
+                return;
+              }
+            });
 
+          }
+
+        ],
+
+        function(err, result) {
+          if (err) {
+            console.log("Error", err);
+            reject(err);
+          } else {
+            resolve({
+              status: "Success"
+            });
+          }
         }
+      );
 
-      ],
-
-      function(err, result) {
-        if (err) {
-          console.log("[KO]", err);
-        } else {
-          console.log("[OK]");
-        }
-        whisk.done(null, err);
-      }
-    );
+    });
 
   }
 
-  return whisk.async();
 }
 
 /**
