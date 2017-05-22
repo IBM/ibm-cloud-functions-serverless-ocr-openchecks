@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/krook/openchecks.svg?branch=master)](https://travis-ci.org/krook/openchecks)
+[![Build Status](https://travis-ci.org/IBM/openchecks.svg?branch=master)](https://travis-ci.org/IBM/openchecks)
 
 # Project OpenChecks
 
