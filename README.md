@@ -80,3 +80,6 @@ If all has been successful, you will have 25% and 50% resized copies of the chec
 
 - With the default free Cloudant account, this demo may hit the request per second rate. There may also be conflicts shown in the logs due to retries on image insertions. Confirm that the data in Cloudant is as you expect.
 - Rather than polling Object Storage, the save image action should be driven by a webhook from OpenStack Swift. As this is not something that you can configure in Bluemix today, the polling option is used.
+
+# License
+[Apache 2.0](LICENSE.txt)
