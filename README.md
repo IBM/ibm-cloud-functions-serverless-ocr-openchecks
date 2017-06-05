@@ -8,6 +8,12 @@ It is currently built on the public Bluemix OpenWhisk service and relies on Clou
 
 ![Check 12](images/overview.png "Overview of the flow.")
 
+## Components
+
+- Apache OpenWhisk on Bluemix
+- Apache CouchDB (IBM Cloudant on Bluemix)
+- SendGrid on Bluemix
+
 ## Basic flow
 
 This PoC uses a set of actions and triggers linked by rules to process images that are added to an object storage service. When new checks are detected a workflow downloads, resizes, archives, and reads the checks then it invokes an external system to handle the transaction.
@@ -41,7 +47,7 @@ Start by copying `template.local.env` to a new `local.env` file. You can fill in
 
 ### Set up Cloudant
 
-Log into the Bluemix console and create a Cloudant instance and name it `checks-db`. You can reuse an existing instance if you already have one. Update `CLOUDANT_INSTANCE` in `local.env` to reflect the name of the Cloudant service instance.
+Log into the [Bluemix console](https://console.ng.bluemix.net/) and create a [Cloudant instance](https://console.ng.bluemix.net/catalog/services/cloudant-nosql-db/?taxonomyNavigation=services&env_id=ibm:yp:us-south) named `cloudant-openchecks`. You can reuse an existing instance if you already have one. Update `CLOUDANT_INSTANCE` in `local.env` to reflect the name of the Cloudant service instance if you name it something else.
 
 Then set the `CLOUDANT_USERNAME` and `CLOUDANT_PASSWORD` values in `local.env` based on the service credentials for the service.
 
@@ -49,28 +55,29 @@ Log into the Cloudant console and create four databases. Set their names in the 
 
 ### Set up Object Storage
 
-Log into the Bluemix console and create an Object Storage instance and name it `checks-os`. Create a container within named `checks`. Update the `local.env` variables for `SWIFT_USER_ID`, `SWIFT_PASSWORD`, `SWIFT_PROJECT_ID`, and `SWIFT_REGION_NAME` accordingly.
+Log into the Bluemix console and create an [Object Storage instance](https://console.ng.bluemix.net/catalog/services/object-storage?env_id=ibm:yp:us-south&taxonomyNavigation=services) named `object-storage-openchecks`. Create a container within named `openchecks`. Create a new set of credentials for the service and update the `local.env` variables for `OBJECT_STORAGE_USER_ID`, `OBJECT_STORAGE_PASSWORD`, `OBJECT_STORAGE_PROJECT_ID`, and `OBJECT_STORAGE_REGION_NAME` accordingly.
 
 ### Set up SendGrid
 
-Log into the Bluemix console and create a SendGrid instance. If you don't want to pay for the minimum plan, you can go to SendGrid.com directly to request a free trial. Follow the developer documentation to configure an API key. Update `local.env` accordingly.
+Log into the Bluemix console and create a [SendGrid](https://console.ng.bluemix.net/catalog/services/sendgrid/?taxonomyNavigation=services) instance. If you don't want to pay for the minimum plan, you can go to [SendGrid directly to request a free trial](http://sendgrid.com/). Follow the developer documentation to configure an API key. Update `local.env` accordingly. There is important additional information on [configuring SendGrid with Bluemix here](https://www.ibm.com/blogs/bluemix/2016/12/using-sendgrid-easy-sending-email/) in case you run into any issues.
+
+### Set up Docker Hub
+
+Create a [Docker Hub](https://hub.docker.com/) account if you don't already have one. This account will be used to upload and tag your Docker action after it's built. OpenWhisk will then download your image by tag name. Update `local.env` with your `DOCKER_HUB_USERNAME` and `DOCKER_HUB_PASSWORD`.
 
 ## Set up OpenWhisk actions, triggers, and rules
 
 If you haven't already, download, install, and test the [`wsk` CLI tool](https://new-console.ng.bluemix.net/openwhisk/cli) with your Bluemix account.
 
-Run the following commands to set up the OpenWhisk resources with a deployment script:
-
-- Make sure `local.env` is complete. Run `source local.env`.
-- Run the `deploy.sh` script. For example, `./deploy.sh --install`
+Run the `deploy.sh` script. For example, `./deploy.sh --install`
 
 ## Running the sample
 
-At this point the triggers, rules, and actions are in place. The Object Storage polling trigger will run every 20 seconds for half an hour by default (90 invocations). You can change this in the `deploy.sh` script by modifying the `maxTriggers` value.
+At this point the triggers, rules, and actions are in place. The Object Storage polling trigger will run every 20 seconds for half an hour by default (90 invocations). You can change this by updating the `POLL_CHECKS_CRON` and `POLL_CHECKS_TIMES` variables.
 
 Open another terminal to start tailing the OpenWhisk logs with `wsk activation poll` so you can see the progress when you start running the sample and are able to debug any issues.
 
-To start the sample, rename the two check images to contain a valid email address that you have access to. That is where the SendGrid notifications will be sent. Then use the Bluemix UI to add those images to your `checks` container.
+To start the sample, rename the two check images to contain a valid email address that you have access to. That is where the SendGrid notifications will be sent. Then use the Bluemix UI to add those images to your `openchecks` container.
 
 The `find-new-checks` action will download the images on its next poll (within 20 seconds as set by the alarm trigger) and this will start the sequence of actions.
 
@@ -81,5 +88,16 @@ If all has been successful, you will have 25% and 50% resized copies of the chec
 - With the default free Cloudant account, this demo may hit the request per second rate. There may also be conflicts shown in the logs due to retries on image insertions. Confirm that the data in Cloudant is as you expect.
 - Rather than polling Object Storage, the save image action should be driven by a webhook from OpenStack Swift. As this is not something that you can configure in Bluemix today, the polling option is used.
 
+# Troubleshooting
+
+Check for errors first in the OpenWhisk activation log. Tail the log on the command line with `wsk activation poll` or drill into details visually with the [monitoring console on Bluemix](https://console.ng.bluemix.net/openwhisk/dashboard).
+
+If the error is not immediately obvious, make sure you have the [latest version of the `wsk` CLI installed](https://console.ng.bluemix.net/openwhisk/learn/cli). If it's older than a few weeks, download an update.
+
+```bash
+wsk property get --cliversion
+```
+
 # License
+
 [Apache 2.0](LICENSE.txt)

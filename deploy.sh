@@ -28,6 +28,9 @@ function usage() {
 }
 
 function install() {
+  # Exit if any command fails
+  set -e
+
   echo -e "${YELLOW}Installing OpenWhisk actions, triggers, and rules for check-deposit..."
 
   echo "Binding package"
@@ -40,8 +43,8 @@ function install() {
   # The trigger will only fire for 30 minutes instead of 10k times.
   wsk trigger create poll-for-incoming-checks \
     --feed /whisk.system/alarms/alarm \
-    --param cron '*/20 * * * * *' \
-    --param maxTriggers 90
+    --param cron "$POLL_CHECKS_CRON" \
+    --param maxTriggers $POLL_CHECKS_TIMES
   wsk trigger create check-ready-to-scan \
     --feed "/_/$CLOUDANT_INSTANCE/changes" \
     --param dbname "$CLOUDANT_AUDITED_DATABASE"
@@ -53,21 +56,21 @@ function install() {
   wsk action create find-new-checks actions/find-new-checks.js \
     --param CLOUDANT_USER "$CLOUDANT_USER" \
     --param CLOUDANT_PASS "$CLOUDANT_PASS" \
-    --param SWIFT_USER_ID "$SWIFT_USER_ID" \
-    --param SWIFT_PASSWORD "$SWIFT_PASSWORD" \
-    --param SWIFT_PROJECT_ID "$SWIFT_PROJECT_ID" \
-    --param SWIFT_REGION_NAME "$SWIFT_REGION_NAME" \
-    --param SWIFT_INCOMING_CONTAINER_NAME "$SWIFT_INCOMING_CONTAINER_NAME"
+    --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
+    --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
+    --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
+    --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
+    --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME"
   wsk action create save-check-images actions/save-check-images.js \
     --param CLOUDANT_USER "$CLOUDANT_USER" \
     --param CLOUDANT_PASS "$CLOUDANT_PASS" \
     --param CLOUDANT_ARCHIVED_DATABASE "$CLOUDANT_ARCHIVED_DATABASE" \
     --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
-    --param SWIFT_USER_ID "$SWIFT_USER_ID" \
-    --param SWIFT_PASSWORD "$SWIFT_PASSWORD" \
-    --param SWIFT_PROJECT_ID "$SWIFT_PROJECT_ID" \
-    --param SWIFT_REGION_NAME "$SWIFT_REGION_NAME" \
-    --param SWIFT_INCOMING_CONTAINER_NAME "$SWIFT_INCOMING_CONTAINER_NAME"
+    --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
+    --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
+    --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
+    --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
+    --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME"
   wsk action create parse-check-data actions/parse-check-data.js \
     --param CLOUDANT_USER "$CLOUDANT_USER" \
     --param CLOUDANT_PASS "$CLOUDANT_PASS" \
@@ -88,9 +91,9 @@ function install() {
     --sequence /_/$CLOUDANT_INSTANCE/read,record-check-deposit
 
   # Build the Docker action. It's stored in the public Docker Hub.
-  docker login --username "$DOCKER_USERNAME" --password "$DOCKER_PASSWORD"
-  sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_USERNAME/ocr-micr"
-  wsk action create --docker parse-check-with-ocr $DOCKER_USERNAME/ocr-micr
+  docker login --username "$DOCKER_HUB_USERNAME" --password "$DOCKER_HUB_PASSWORD"
+  sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_HUB_USERNAME/ocr-micr"
+  wsk action create --docker parse-check-with-ocr $DOCKER_HUB_USERNAME/ocr-micr
 
   echo "Enabling rules"
   wsk rule create fetch-checks poll-for-incoming-checks find-new-checks
@@ -134,11 +137,11 @@ function uninstall() {
 
 function showenv() {
   echo -e "${YELLOW}"
-  echo SWIFT_USER_ID=$SWIFT_USER_ID
-  echo SWIFT_PASSWORD=$SWIFT_PASSWORD
-  echo SWIFT_PROJECT_ID=$SWIFT_PROJECT_ID
-  echo SWIFT_REGION_NAME=$SWIFT_REGION_NAME
-  echo SWIFT_INCOMING_CONTAINER_NAME=$SWIFT_INCOMING_CONTAINER_NAME
+  echo OBJECT_STORAGE_USER_ID=$OBJECT_STORAGE_USER_ID
+  echo OBJECT_STORAGE_PASSWORD=$OBJECT_STORAGE_PASSWORD
+  echo OBJECT_STORAGE_PROJECT_ID=$OBJECT_STORAGE_PROJECT_ID
+  echo OBJECT_STORAGE_REGION_NAME=$OBJECT_STORAGE_REGION_NAME
+  echo OBJECT_STORAGE_INCOMING_CONTAINER_NAME=$OBJECT_STORAGE_INCOMING_CONTAINER_NAME
   echo CLOUDANT_INSTANCE=$CLOUDANT_INSTANCE
   echo CLOUDANT_USER=$CLOUDANT_USER
   echo CLOUDANT_PASS=$CLOUDANT_PASS
@@ -148,8 +151,8 @@ function showenv() {
   echo CLOUDANT_PROCESSED_DATABASE=$CLOUDANT_PROCESSED_DATABASE
   echo SENDGRID_API_KEY=$SENDGRID_API_KEY
   echo SENDGRID_FROM_ADDRESS=$SENDGRID_FROM_ADDRESS
-  echo DOCKER_USERNAME=$DOCKER_USERNAME
-  echo DOCKER_PASSWORD=$DOCKER_PASSWORD
+  echo DOCKER_HUB_USERNAME=$DOCKER_HUB_USERNAME
+  echo DOCKER_HUB_PASSWORD=$DOCKER_HUB_PASSWORD
   echo -e "${NC}"
 }
 
