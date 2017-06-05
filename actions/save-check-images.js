@@ -33,8 +33,8 @@ var Cloudant = require('cloudant');
  * 3. Store the resized images into an archive database for use by other applications
  * 4. Store the original image into an audit database to initiate the OCR scan in another action
  *
- * @param   params.CLOUDANT_USER                            Cloudant username
- * @param   params.CLOUDANT_PASS                            Cloudant password
+ * @param   params.CLOUDANT_USERNAME                        Cloudant username
+ * @param   params.CLOUDANT_PASSWORD                        Cloudant password
  * @param   params.CLOUDANT_ARCHIVED_DATABASE               Cloudant database to store the resized copies to
  * @param   params.CLOUDANT_AUDITED_DATABASE                Cloudant database to store the original copy to
  * @param   params.OBJECT_STORAGE_USER_ID                   Object storage user id
@@ -49,8 +49,8 @@ function main(params) {
 
   // Configure database connection
   var cloudant = new Cloudant({
-    account: params.CLOUDANT_USER,
-    password: params.CLOUDANT_PASS
+    account: params.CLOUDANT_USERNAME,
+    password: params.CLOUDANT_PASSWORD
   });
   var archivedDb = cloudant.db.use(params.CLOUDANT_ARCHIVED_DATABASE);
   var auditedDb = cloudant.db.use(params.CLOUDANT_AUDITED_DATABASE);

@@ -27,9 +27,9 @@ var async = require('async');
  * 2. Insert it into the 'processed' database which an external system would use, or otherwise invoke that other system.
  * 3. Send an email notification to the customer that their check has been processed.
  *
- * @param   params._id                            The id of the record in the Cloudant 'processed' database
- * @param   params.CLOUDANT_USER                 Cloudant username
- * @param   params.CLOUDANT_PASS                 Cloudant password
+ * @param   params._id                           The id of the record in the Cloudant 'processed' database
+ * @param   params.CLOUDANT_USERNAME             Cloudant username
+ * @param   params.CLOUDANT_PASSWORD             Cloudant password
  * @param   params.CLOUDANT_PARSED_DATABASE      Cloudant database to retrieve the parsed from
  * @param   params.CLOUDANT_PROCESSSED_DATABASE  Cloudant database to store the processed data to
  * @param   params.SENDGRID_API_KEY              Cloudant password
@@ -43,8 +43,8 @@ function main(params) {
   // Configure database connection
   console.log(params);
   var cloudant = new Cloudant({
-    account: params.CLOUDANT_USER,
-    password: params.CLOUDANT_PASS
+    account: params.CLOUDANT_USERNAME,
+    password: params.CLOUDANT_PASSWORD
   });
   var processedDb = cloudant.db.use(params.CLOUDANT_PROCESSED_DATABASE);
 
