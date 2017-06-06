@@ -23,14 +23,15 @@ var fs = require('fs');
  * This action is triggered by a new check image added to object storage, or in this case a CouchDB database.
  * This action is idempotent. If it fails, it can be retried.
  *
- * 1. Fetch the record from the 'incoming' database and find its attachment.
+ * 1. Fetch the record from the 'incoming' object storage container.
  * 2. Process the image for account, routing number, and amount move it to another 'processed' database with metadata and a confidence score.
  *
- * @param   params.id                 The id of the record in the Cloudant 'processed' database
- * @param   params.CLOUDANT_USER      Cloudant username (set once at action update time)
- * @param   params.CLOUDANT_PASS      Cloudant password (set once at action update time)
- * @param   params.SENDGRID_API_KEY   Cloudant password (set once at action update time)
- * @return                            Standard OpenWhisk success/error response
+ * @param   params.OBJECT_STORAGE_USER_ID                   Object storage user id
+ * @param   params.OBJECT_STORAGE_PASSWORD                  Object storage password
+ * @param   params.OBJECT_STORAGE_PROJECT_ID                Object storage project id
+ * @param   params.OBJECT_STORAGE_REGION_NAME               Object storage region
+ * @param   params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME   Object storage container where the image is
+ * @return                                                  Standard OpenWhisk success/error response
  */
 function main(params) {
   console.log("Retrieving file list");
@@ -39,10 +40,10 @@ function main(params) {
 
   // Configure object storage connection
   var os = new ObjectStorage(
-    params.SWIFT_REGION_NAME,
-    params.SWIFT_PROJECT_ID,
-    params.SWIFT_USER_ID,
-    params.SWIFT_PASSWORD
+    params.OBJECT_STORAGE_REGION_NAME,
+    params.OBJECT_STORAGE_PROJECT_ID,
+    params.OBJECT_STORAGE_USER_ID,
+    params.OBJECT_STORAGE_PASSWORD
   );
 
   return new Promise(function(resolve, reject) {
@@ -51,7 +52,7 @@ function main(params) {
         console.log("Authentication failure", err);
         whisk.done(null, err);
       } else {
-        os.listFiles(params.SWIFT_INCOMING_CONTAINER_NAME, function(err, response, files) {
+        os.listFiles(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, function(err, response, files) {
           console.log(files);
           console.log("Found", files.length, "files");
 
@@ -124,7 +125,7 @@ function asyncCallSaveCheckImagesAction(actionName, fileName, contentType, lastM
 }
 
 /**
- * This is an adapter class for OpenStack Swift based object storage.
+ * This is an adapter class for OpenStack OBJECT_STORAGE based object storage.
  *
  * @param   region      The id of the record in the Cloudant 'processed' database
  * @param   projectId   Cloudant username (set once at action update time)

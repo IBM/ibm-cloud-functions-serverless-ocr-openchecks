@@ -13,7 +13,10 @@
 # limitations under the License.
 ##############################################################################
 language: bash
-sudo: true
+sudo: required
+
+services:
+  - docker
 
 script:
     - ./travis-test.sh

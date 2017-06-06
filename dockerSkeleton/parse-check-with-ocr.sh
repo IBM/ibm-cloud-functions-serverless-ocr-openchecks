@@ -3,14 +3,14 @@
 echo $1 > params.json
 
 # Cloudant credentials and the _id of the attachment/document to download.
-CLOUDANT_USER=`cat params.json | jq -r '.CLOUDANT_USER'`
-CLOUDANT_PASS=`cat params.json | jq -r '.CLOUDANT_PASS'`
+CLOUDANT_USERNAME=`cat params.json | jq -r '.CLOUDANT_USERNAME'`
+CLOUDANT_PASSWORD=`cat params.json | jq -r '.CLOUDANT_PASSWORD'`
 CLOUDANT_AUDITED_DATABASE=`cat params.json | jq -r '.CLOUDANT_AUDITED_DATABASE'`
 IMAGE_ID=`cat params.json | jq -r '.IMAGE_ID'`
 
 # Download the image from Cloudant.
 curl -s -X GET -o imgData \
-"https://$CLOUDANT_USER:$CLOUDANT_PASS@$CLOUDANT_USER.cloudant.com/$CLOUDANT_AUDITED_DATABASE/$IMAGE_ID/$IMAGE_ID?attachments=true&include_docs=true"
+"https://$CLOUDANT_USERNAME:$CLOUDANT_PASSWORD@$CLOUDANT_USERNAME.cloudant.com/$CLOUDANT_AUDITED_DATABASE/$IMAGE_ID/$IMAGE_ID?attachments=true&include_docs=true"
 
 # Extract the account number and routing number as text by parsing for MICR font values.
 tesseract imgData imgData.txt -l mcr2 >/dev/null 2>&1

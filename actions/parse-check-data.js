@@ -29,8 +29,8 @@ var fs = require('fs');
  *    another 'parsed' database with metadata and a confidence score.
  *
  * @param   params._id                       The id of the inserted record in the Cloudant 'audit' database that triggered this action
- * @param   params.CLOUDANT_USER             Cloudant username
- * @param   params.CLOUDANT_PASS             Cloudant password
+ * @param   params.CLOUDANT_USERNAME         Cloudant username
+ * @param   params.CLOUDANT_PASSWORD         Cloudant password
  * @param   params.CLOUDANT_AUDITED_DATABASE Cloudant database to store the original copy to
  * @param   params.CLOUDANT_PARSED_DATABASE  Cloudant database to store the parsed check data to
  * @return                                   Standard OpenWhisk success/error response
@@ -42,8 +42,8 @@ function main(params) {
   // Configure database connection
   console.log(params);
   var cloudant = new Cloudant({
-    account: params.CLOUDANT_USER,
-    password: params.CLOUDANT_PASS
+    account: params.CLOUDANT_USERNAME,
+    password: params.CLOUDANT_PASSWORD
   });
   var parsedDb = cloudant.db.use(params.CLOUDANT_PARSED_DATABASE);
 
@@ -66,8 +66,8 @@ function main(params) {
           function(callback) {
             console.log('[parse-check-data.main] Executing OCR parse of check');
             asyncCallOcrParseAction("/_/parse-check-with-ocr",
-              params.CLOUDANT_USER,
-              params.CLOUDANT_PASS,
+              params.CLOUDANT_USERNAME,
+              params.CLOUDANT_PASSWORD,
               params.CLOUDANT_AUDITED_DATABASE,
               params._id,
               callback
@@ -150,8 +150,8 @@ function asyncCallOcrParseAction(actionName, cloudantUser, cloudantPass, databas
     wsk.actions.invoke({
       "actionName": actionName,
       "params": {
-        CLOUDANT_USER: cloudantUser,
-        CLOUDANT_PASS: cloudantPass,
+        CLOUDANT_USERNAME: cloudantUser,
+        CLOUDANT_PASSWORD: cloudantPass,
         CLOUDANT_AUDITED_DATABASE: database,
         IMAGE_ID: id
       },

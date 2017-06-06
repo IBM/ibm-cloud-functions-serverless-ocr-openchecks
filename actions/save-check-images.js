@@ -33,34 +33,34 @@ var Cloudant = require('cloudant');
  * 3. Store the resized images into an archive database for use by other applications
  * 4. Store the original image into an audit database to initiate the OCR scan in another action
  *
- * @param   params.CLOUDANT_USER                   Cloudant username
- * @param   params.CLOUDANT_PASS                   Cloudant password
- * @param   params.CLOUDANT_ARCHIVED_DATABASE      Cloudant database to store the resized copies to
- * @param   params.CLOUDANT_AUDITED_DATABASE       Cloudant database to store the original copy to
- * @param   params.SWIFT_USER_ID                   Object storage user id
- * @param   params.SWIFT_PASSWORD                  Object storage password
- * @param   params.SWIFT_PROJECT_ID                Object storage project id
- * @param   param.sSWIFT_REGION_NAME               Object storage region
- * @param   params.SWIFT_INCOMING_CONTAINER_NAME   Object storage container where the image is
- * @return                                         Standard OpenWhisk success/error response
+ * @param   params.CLOUDANT_USERNAME                        Cloudant username
+ * @param   params.CLOUDANT_PASSWORD                        Cloudant password
+ * @param   params.CLOUDANT_ARCHIVED_DATABASE               Cloudant database to store the resized copies to
+ * @param   params.CLOUDANT_AUDITED_DATABASE                Cloudant database to store the original copy to
+ * @param   params.OBJECT_STORAGE_USER_ID                   Object storage user id
+ * @param   params.OBJECT_STORAGE_PASSWORD                  Object storage password
+ * @param   params.OBJECT_STORAGE_PROJECT_ID                Object storage project id
+ * @param   params.OBJECT_STORAGE_REGION_NAME               Object storage region
+ * @param   params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME   Object storage container where the image is
+ * @return                                                  Standard OpenWhisk success/error response
  */
 function main(params) {
   console.log("Processing one file", params);
 
   // Configure database connection
   var cloudant = new Cloudant({
-    account: params.CLOUDANT_USER,
-    password: params.CLOUDANT_PASS
+    account: params.CLOUDANT_USERNAME,
+    password: params.CLOUDANT_PASSWORD
   });
   var archivedDb = cloudant.db.use(params.CLOUDANT_ARCHIVED_DATABASE);
   var auditedDb = cloudant.db.use(params.CLOUDANT_AUDITED_DATABASE);
 
   // Configure object storage connection
   var os = new ObjectStorage(
-    params.SWIFT_REGION_NAME,
-    params.SWIFT_PROJECT_ID,
-    params.SWIFT_USER_ID,
-    params.SWIFT_PASSWORD
+    params.OBJECT_STORAGE_REGION_NAME,
+    params.OBJECT_STORAGE_PROJECT_ID,
+    params.OBJECT_STORAGE_USER_ID,
+    params.OBJECT_STORAGE_PASSWORD
   );
 
   // Names to use for the 50% and 25% scaled images
@@ -83,7 +83,7 @@ function main(params) {
         // Get the file on disk as a temp file
         function(callback) {
           console.log("Downloading", params.fileName);
-          os.downloadFile(params.SWIFT_INCOMING_CONTAINER_NAME, params.fileName, fs.createWriteStream(params.fileName), function(err) {
+          os.downloadFile(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, params.fileName, fs.createWriteStream(params.fileName), function(err) {
             return callback(err);
           });
         },
@@ -234,8 +234,8 @@ function main(params) {
 
         // When all the steps above have completed successfully, delete the file from the incoming folder
         function(callback) {
-          console.log("Deleting processed file from", params.SWIFT_INCOMING_CONTAINER_NAME);
-          os.deleteFile(params.SWIFT_INCOMING_CONTAINER_NAME, params.fileName, callback, function(err) {
+          console.log("Deleting processed file from", params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME);
+          os.deleteFile(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, params.fileName, callback, function(err) {
             if (err) {
               return callback(err);
             } else {
@@ -262,7 +262,7 @@ function main(params) {
 }
 
 /**
- * This is an adapter class for OpenStack Swift based object storage.
+ * This is an adapter class for OpenStack OBJECT_STORAGE based object storage.
  *
  * @param   region      The id of the record in the Cloudant 'processed' database
  * @param   projectId   Cloudant username (set once at action update time)
