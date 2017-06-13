@@ -74,28 +74,6 @@ Inside of the core OpenWhisk logic, we have the trigger we created above for the
     --param SENDGRID_FROM_ADDRESS "$SENDGRID_FROM_ADDRESS"
   ```
 
-### Test the actions
-
-- Out of warranty November 30, 2016
-
-  ```bash
-  ```
-
-- In warranty till January 31, 2017
-
-  ```bash
-  ```
-
-- Check whether any appliance is nearing warranty expiration:
-
-  ```bash
-  ```
-
-- Alert the customer:
-
-  ```bash
-  ```
-
 ## Create custom triggers and rules
 
 - Create the triggers for the Cloudant feeds:

@@ -23,4 +23,4 @@ ROUTING=${values[0]}
 ACCOUNT=${values[1]}
 
 # Return JSON formatted values.
-echo "{ \"result\": {\"routing\": \"$ROUTING\", \"account\": \"$ACCOUNT\"} }"
+echo '{ "result": {"routing": "'$ROUTING'", "account": "'$ACCOUNT'"} }'
