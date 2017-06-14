@@ -1,6 +1,6 @@
 # Setting up the environment
 
-This document describes how to use Bluemix to set up the Cloudant database, SendGrid email service, configure and test the Watson IoT service and devices, and then deploy a Cloud Foundry application that proxies MQTT events to the OpenWhisk actions.
+This document describes how to use Bluemix to set up the Cloudant database, Object Storage services, and SendGrid email service. You'll also need a [Docker Hub](https://hub.docker.com/) account.
 
 After completing the steps here, proceed to [set up the OpenWhisk actions, triggers, and rules](OPENWHISK.md).
 
@@ -14,7 +14,7 @@ Log into the [Bluemix console](https://console.ng.bluemix.net/) and create a [Cl
 
 Then set the `CLOUDANT_USERNAME` and `CLOUDANT_PASSWORD` values in `local.env` based on the service credentials for the service.
 
-Log into the Cloudant console and create four databases. Set their names in the `CLOUDANT_ARCHIVED_DATABASE`, `CLOUDANT_AUDITED_DATABASE`, `CLOUDANT_PARSED_DATABASE`, and `CLOUDANT_PROCESSED_DATABASE` variables.
+Log into the Cloudant console and create five databases. Set their names in the `CLOUDANT_ARCHIVED_DATABASE`, `CLOUDANT_AUDITED_DATABASE`, `CLOUDANT_PARSED_DATABASE`, `CLOUDANT_REJECTED_DATABASE`, and `CLOUDANT_PROCESSED_DATABASE` variables.
 
 ### Set up Object Storage
 

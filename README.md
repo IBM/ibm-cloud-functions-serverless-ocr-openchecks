@@ -28,7 +28,7 @@ Most of the actions are written in JavaScript using the default Node.js version 
 
 * A mobile app user or teller at a bank branch scans and places an image into an object storage service (the `incoming` container) named with the customer email, deposit to account, amount of the check, and timestamp encoded in the file name, for example, `krook@example.com^12345679^19.99^1475597757.jpg`
 
-* A `poll-for-incoming-checks` trigger invokes the [`find-new-checks`](actions/find-new-checks.js) action every 20 seconds to poll the object storage service for new check images. (An alternative implementation can use an OpenStack Swift webhook to push this event instead of polling).
+* A `poll-for-incoming-checks` trigger invokes the [`find-new-checks`](actions/find-new-checks.js) action every 20 seconds to poll the object storage service for new check images. (An alternative implementation should use an [OpenStack Swift webhook](https://github.com/stmuraka/OpenStackSwift-OpenWhisk) to push this event instead of polling).
 
 * This [`find-new-checks`](actions/find-new-checks.js) action queries the object storage service. For each file found, it invokes the [`save-check-images`](actions/save-check-images.js) action asynchronously.
 
@@ -36,7 +36,7 @@ Most of the actions are written in JavaScript using the default Node.js version 
 
 * A `check-ready-to-scan` change trigger on the `audit` CouchDB database invokes a [`parse-check-data`](actions/parse-check-data.js) action to process the full size image.
 
-* This [`parse-check-data`](actions/parse-check-data.js) action retrieves the image, then calls the [`parse-check-with-ocr`](dockerSkeleton/parse-check-with-ocr.sh) Docker action to read the from account information and routing number. If it can't read this information, the check is flagged as needing additional human review. It stores the results into a `parsed` CouchDB database.
+* This [`parse-check-data`](actions/parse-check-data.js) action retrieves the image, then calls the [`parse-check-with-ocr`](dockerSkeleton/parse-check-with-ocr.sh) Docker action to read the from account information and routing number. It stores the results into a `parsed` CouchDB database. If it can't read this information, the check is flagged as needing additional human review and stored in a `rejected` database.
 
 * A `check-ready-for-deposit` trigger is then fired by that change to the `parsed` database and invokes another action, [`record-check-deposit`](actions/record-check-deposit.js).
 
@@ -44,7 +44,7 @@ Most of the actions are written in JavaScript using the default Node.js version 
 
 ## Sample check images
 
-There are two checks in the `images` directory that the OCR action can read reliably right now.
+There are three checks in the `images` directory that the OCR action can read reliably and two that will fail in order to show the different workflows (and to provide an exercise for improving the image recognition).
 
 Notice the [MICR](https://en.wikipedia.org/wiki/Magnetic_ink_character_recognition) data at the bottom of the check representing the routing number and deposit from account.
 

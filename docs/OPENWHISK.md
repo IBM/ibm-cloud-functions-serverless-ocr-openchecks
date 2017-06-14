@@ -12,10 +12,6 @@ Otherwise, read on if you want to understand how all the OpenWhisk actions, trig
 
 ## Create custom actions
 
-Inside of the core OpenWhisk logic, we have the trigger we created above for the MQTT feed from the refrigerator via Watson IoT, along with 3 other triggers: Two are bound to changes in Cloudant databases, and one is bound to a nightly alarm. Both of these trigger types are built into the Bluemix OpenWhisk platform.
-
-### Create the custom actions
-
 - Create the action to poll for new checks:
 
   ```bash
@@ -51,7 +47,8 @@ Inside of the core OpenWhisk logic, we have the trigger we created above for the
     --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
     --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
     --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
-    --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE"
+    --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
+    --param CLOUDANT_REJECTED_DATABASE "$CLOUDANT_REJECTED_DATABASE"
   ```
 
 - Create the action to execute the optical character recognition:
@@ -104,7 +101,7 @@ Inside of the core OpenWhisk logic, we have the trigger we created above for the
     --sequence /_/$CLOUDANT_INSTANCE/read,record-check-deposit
   ```
 
-- Create the rules:
+- Create the rules linking the triggers to the actions:
 
   ```bash
   wsk rule create fetch-checks poll-for-incoming-checks find-new-checks
@@ -119,16 +116,16 @@ At this point the triggers, rules, and actions are in place. The Object Storage 
 
 Open another terminal to start tailing the OpenWhisk logs with `wsk activation poll` so you can see the progress when you start running the sample and are able to debug any issues.
 
-To start the sample, rename the two check images to contain a valid email address that you have access to. That is where the SendGrid notifications will be sent. Then use the Bluemix UI to add those images to your `openchecks` container.
+To start the sample, rename the five check images to contain a valid email address that you have access to (replacing "user@example.com"). That is where the SendGrid notifications will be sent. Then use the Bluemix UI to add those images to your `openchecks` Object Storage container.
 
 The `find-new-checks` action will download the images on its next poll (within 20 seconds as set by the alarm trigger) and this will start the sequence of actions.
 
-If all has been successful, you will have 25% and 50% resized copies of the check images as attachments in your `CLOUDANT_ARCHIVED_DATABASE`. You will have the original image as an attachment in your `CLOUDANT_AUDITED_DATABASE`. You will have the OCR parsed from the check and its filename in the `CLOUDANT_PARSED_DATABASE` and you will have the final transaction info (simulating an external system of record) in the `CLOUDANT_PROCESSED_DATABASE`.
+If all has been successful, you will have 25% and 50% resized copies of the check images as attachments in your `CLOUDANT_ARCHIVED_DATABASE`. You will have the original image as an attachment in your `CLOUDANT_AUDITED_DATABASE`. You will have the OCR parsed from the check and its filename in the `CLOUDANT_PARSED_DATABASE` and you will have the final transaction info (simulating an external system of record) in the `CLOUDANT_PROCESSED_DATABASE`. Any checks that could not be parsed will be in the `CLOUDANT_REJECTED_DATABASE`.
 
 ## Known issues
 
 - With the default free Cloudant account, this demo may hit the request per second rate. There may also be conflicts shown in the logs due to retries on image insertions. Confirm that the data in Cloudant is as you expect.
-- Rather than polling Object Storage, the save image action should be driven by a webhook from OpenStack Swift. As this is not something that you can configure in Bluemix today, the polling option is used.
+- Rather than polling Object Storage, the save image action should be driven by a [webhook from OpenStack Swift](https://github.com/stmuraka/OpenStackSwift-OpenWhisk). As this is not something that you can configure in Bluemix today, the polling option is used.
 
 ## Troubleshooting
 
