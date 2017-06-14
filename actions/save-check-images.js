@@ -45,7 +45,6 @@ var Cloudant = require('cloudant');
  * @return                                                  Standard OpenWhisk success/error response
  */
 function main(params) {
-  console.log("Processing one file", params);
 
   // Configure database connection
   var cloudant = new Cloudant({
@@ -63,9 +62,10 @@ function main(params) {
     params.OBJECT_STORAGE_PASSWORD
   );
 
-  // Names to use for the 50% and 25% scaled images
+  // For the 50% and 25% scaled images and image type
   var medFileName = "300px-" + params.fileName;
   var smFileName = "150px-" + params.fileName;
+  var fileExtension = params.fileName.split('.').pop();
 
   // This chains together the following functions serially, so that if there's an error along the way,
   // the check isn't deleted and this can be called again idempotently.
@@ -91,31 +91,24 @@ function main(params) {
         // Copy and resize the file to two smaller versions
         function(callback) {
 
-          // Inject this into String
-          // https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
-          if (!String.prototype.endsWith) {
-            String.prototype.endsWith = function(searchString, position) {
-              var subjectString = this.toString();
-              if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
-                position = subjectString.length;
-              }
-              position -= searchString.length;
-              var lastIndex = subjectString.indexOf(searchString, position);
-              return lastIndex !== -1 && lastIndex === position;
-            };
-          }
-
           console.log("Creating resized images.");
-          if (params.fileName.toLowerCase().endsWith(".jpg") || params.fileName.toLowerCase().endsWith(".png")) {
+          if (fileExtension == "bmp" || fileExtension == "jpg" || fileExtension == "png" || fileExtension == "gif") {
             console.log("Resizing image to 300px wide");
             gm(params.fileName).resize(300).write(medFileName, function(err) {
-              return callback(err);
+              if (err) {
+                console.log("300px resize error: " + err);
+                return callback(err);
+              } else {
+                console.log("Resizing image to 150px wide");
+                gm(params.fileName).resize(150).write(smFileName, function(err) {
+                  if (err) {
+                    console.log("150px resize error: " + err);
+                    return callback(err);
+                  }
+                  return callback(null);
+                });
+              }
             });
-            console.log("Resizing image to 150px wide");
-            gm(params.fileName).resize(150).write(smFileName, function(err) {
-              return callback(err);
-            });
-            return callback(null);
           } else {
             return callback("File is not an image.");
           }
@@ -137,15 +130,28 @@ function main(params) {
 
         // Save original image data to Cloudant with an enriched name
         function(data, callback) {
-          console.log("Attempting insert of original image into the audited database.");
+          var uuid1 = uuid.v1();
+          var attachmentName = "att-" + uuid1;
+          console.log("Attempting insert of original image into the audited database. Id = " + uuid1);
+
+          var values = params.fileName.split('^');
+          var email = values[0];
+          var toAccount = values[1];
+          var amount = values[2];
+
           auditedDb.multipart.insert({
-              _id: params.fileName
+              fileName: params.fileName,
+              attachmentName: attachmentName,
+              email: email,
+              toAccount: toAccount,
+              amount: amount,
+              timestamp: (new Date()).getTime()
             }, [{
-              name: params.fileName,
+              name: attachmentName,
               data: data,
               content_type: params.contentType
             }],
-            params.fileName,
+            uuid1,
             function(err, body) {
               if (err && err.statusCode != 409) {
                 console.log("Error with original file insert.");
@@ -174,15 +180,19 @@ function main(params) {
 
         // Save medium file to Cloudant with an enriched name
         function(data, callback) {
+          if (!data) return callback(null);
           console.log("Attempting Cloudant insert of medium image into the archived database.");
+          var uuid1 = uuid.v1();
+          var attachmentName = uuid.v1(); //I'd rather use a simple md5 hash, but it's not available
           archivedDb.multipart.insert({
-              _id: medFileName
+              fileName: medFileName,
+              attachmentName: attachmentName
             }, [{
-              name: medFileName,
+              name: attachmentName,
               data: data,
               content_type: params.contentType
             }],
-            medFileName,
+            uuid1,
             function(err, body) {
               if (err && err.statusCode != 409) {
                 console.log("Error with Cloudant medium insert.");
@@ -211,15 +221,19 @@ function main(params) {
 
         // Save small file to Cloudant with an enriched name
         function(data, callback) {
+          if (!data) return callback(null);
           console.log("Attempting Cloudant insert of small image into the archived database.");
+          var uuid1 = uuid.v1();
+          var attachmentName = uuid.v1(); //I'd rather use a simple md5 hash, but it's not available
           archivedDb.multipart.insert({
-              _id: smFileName
+              fileName: smFileName,
+              attachmentName: attachmentName
             }, [{
-              name: smFileName,
+              name: attachmentName,
               data: data,
               content_type: params.contentType
             }],
-            smFileName,
+            uuid1,
             function(err, body) {
               if (err && err.statusCode != 409) {
                 console.log("Error with Cloudant small file insert.");

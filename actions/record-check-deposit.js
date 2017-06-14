@@ -30,7 +30,6 @@ var async = require('async');
  * @param   params._id                           The id of the record in the Cloudant 'processed' database
  * @param   params.CLOUDANT_USERNAME             Cloudant username
  * @param   params.CLOUDANT_PASSWORD             Cloudant password
- * @param   params.CLOUDANT_PARSED_DATABASE      Cloudant database to retrieve the parsed from
  * @param   params.CLOUDANT_PROCESSSED_DATABASE  Cloudant database to store the processed data to
  * @param   params.SENDGRID_API_KEY              Cloudant password
  * @param   params.SENDGRID_FROM_ADDRESS         Address to set as sender
@@ -41,7 +40,6 @@ function main(params) {
   var wsk = openwhisk();
 
   // Configure database connection
-  console.log(params);
   var cloudant = new Cloudant({
     account: params.CLOUDANT_USERNAME,
     password: params.CLOUDANT_PASSWORD
@@ -87,7 +85,7 @@ function main(params) {
             content += 'your deposit for $' + processed.amount + ' was accepted into your account ' + processed.toAccount + ' on ' + format(processed.timestamp) + '. ';
             content += 'For reference, the check number and routing number were: ' + processed.fromAccount + '-' + processed.routingNumber + '. ';
 
-            console.log("Mailing: " + '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "check.deposit@catabase.org"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}');
+            console.log("Mailing: " + '{"personalizations": [{"to": [{"email": "' + processed.email + '"}]}],"from": {"email": "' + params.SENDGRID_FROM_ADDRESS + '"},"subject": "' + subject + '","content": [{"type": "text/plain", "value": "' + content + '"}]}');
 
             request({
               url: 'https://api.sendgrid.com/v3/mail/send',
@@ -129,6 +127,10 @@ function main(params) {
 
     });
 
+  } else {
+    return Promise.resolve({
+      status: "Success"
+    });
   }
 
 }
