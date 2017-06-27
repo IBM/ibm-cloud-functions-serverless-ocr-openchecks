@@ -94,7 +94,7 @@ function install() {
   # Build the Docker action. It's stored in the public Docker Hub.
   docker login --username "$DOCKER_HUB_USERNAME" --password "$DOCKER_HUB_PASSWORD"
   sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_HUB_USERNAME/ocr-micr"
-  wsk action create --docker parse-check-with-ocr $DOCKER_HUB_USERNAME/ocr-micr
+  wsk action create parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
 
   echo "Enabling rules"
   wsk rule create fetch-checks poll-for-incoming-checks find-new-checks
