@@ -56,7 +56,7 @@ Otherwise, read on if you want to understand how all the OpenWhisk actions, trig
   ```bash
   docker login --username "$DOCKER_HUB_USERNAME" --password "$DOCKER_HUB_PASSWORD"
   sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_HUB_USERNAME/ocr-micr"
-  wsk action create --docker parse-check-with-ocr $DOCKER_HUB_USERNAME/ocr-micr
+  wsk action create parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
   ```
 
 - Create the action to record the check deposit:
