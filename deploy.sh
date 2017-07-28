@@ -33,13 +33,13 @@ function install() {
 
   echo -e "${YELLOW}Installing OpenWhisk actions, triggers, and rules for check-deposit..."
 
-  echo "Binding package"
+  echo "Binding Cloudant package"
   wsk package bind /whisk.system/cloudant "$CLOUDANT_INSTANCE" \
     --param username "$CLOUDANT_USERNAME" \
     --param password "$CLOUDANT_PASSWORD" \
     --param host "$CLOUDANT_USERNAME.cloudant.com"
 
-  echo "Creating triggers"
+  echo "Creating alarm and Cloudant data change triggers"
   # The trigger will only fire for 30 minutes instead of 10k times.
   wsk trigger create poll-for-incoming-checks \
     --feed /whisk.system/alarms/alarm \
@@ -52,54 +52,44 @@ function install() {
     --feed "/_/$CLOUDANT_INSTANCE/changes" \
     --param dbname "$CLOUDANT_PARSED_DATABASE"
 
+  echo "Creating a package (here used as a namespace for shared environment variables)"
+  wsk package create openchecks \
+  --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
+  --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
+  --param CLOUDANT_ARCHIVED_DATABASE "$CLOUDANT_ARCHIVED_DATABASE" \
+  --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
+  --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
+  --param CLOUDANT_REJECTED_DATABASE "$CLOUDANT_REJECTED_DATABASE" \
+  --param CLOUDANT_PROCESSED_DATABASE "$CLOUDANT_PROCESSED_DATABASE" \
+  --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
+  --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
+  --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
+  --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
+  --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME" \
+  --param SENDGRID_API_KEY "$SENDGRID_API_KEY" \
+  --param SENDGRID_FROM_ADDRESS "$SENDGRID_FROM_ADDRESS"
+
   echo "Creating actions"
-  wsk action create find-new-checks actions/find-new-checks.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
-    --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
-    --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
-    --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
-    --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME"
-  wsk action create save-check-images actions/save-check-images.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param CLOUDANT_ARCHIVED_DATABASE "$CLOUDANT_ARCHIVED_DATABASE" \
-    --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
-    --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
-    --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
-    --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
-    --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
-    --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME"
-  wsk action create parse-check-data actions/parse-check-data.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
-    --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
-    --param CLOUDANT_REJECTED_DATABASE "$CLOUDANT_REJECTED_DATABASE"
-  wsk action create record-check-deposit actions/record-check-deposit.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
-    --param CLOUDANT_PROCESSED_DATABASE "$CLOUDANT_PROCESSED_DATABASE" \
-    --param SENDGRID_API_KEY "$SENDGRID_API_KEY" \
-    --param SENDGRID_FROM_ADDRESS "$SENDGRID_FROM_ADDRESS"
+  wsk action create openchecks/find-new-checks actions/find-new-checks.js
+  wsk action create openchecks/save-check-images actions/save-check-images.js
+  wsk action create openchecks/parse-check-data actions/parse-check-data.js
+  wsk action create openchecks/record-check-deposit actions/record-check-deposit.js
 
   # The new approach for processing Cloudant database triggers.
-  wsk action create scan-sequence \
-    --sequence /_/$CLOUDANT_INSTANCE/read,parse-check-data
-  wsk action create deposit-sequence \
-    --sequence /_/$CLOUDANT_INSTANCE/read,record-check-deposit
+  wsk action create openchecks/scan-sequence \
+    --sequence /_/$CLOUDANT_INSTANCE/read,openchecks/parse-check-data
+  wsk action create openchecks/deposit-sequence \
+    --sequence /_/$CLOUDANT_INSTANCE/read,openchecks/record-check-deposit
 
   # Build the Docker action. It's stored in the public Docker Hub.
   docker login --username "$DOCKER_HUB_USERNAME" --password "$DOCKER_HUB_PASSWORD"
   sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_HUB_USERNAME/ocr-micr"
-  wsk action create parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
+  wsk action create openchecks/parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
 
   echo "Enabling rules"
-  wsk rule create fetch-checks poll-for-incoming-checks find-new-checks
-  wsk rule create scan-checks check-ready-to-scan scan-sequence
-  wsk rule create deposit-checks check-ready-for-deposit deposit-sequence
+  wsk rule create fetch-checks poll-for-incoming-checks openchecks/find-new-checks
+  wsk rule create scan-checks check-ready-to-scan openchecks/scan-sequence
+  wsk rule create deposit-checks check-ready-for-deposit openchecks/deposit-sequence
 
   echo -e "${GREEN}Install Complete${NC}"
 }
@@ -122,16 +112,17 @@ function uninstall() {
   wsk trigger delete check-ready-for-deposit
 
   echo "Removing actions..."
-  wsk action delete find-new-checks
-  wsk action delete save-check-images
-  wsk action delete parse-check-data
-  wsk action delete record-check-deposit
-  wsk action delete parse-check-with-ocr
-  wsk action delete scan-sequence
-  wsk action delete deposit-sequence
+  wsk action delete openchecks/find-new-checks
+  wsk action delete openchecks/save-check-images
+  wsk action delete openchecks/parse-check-data
+  wsk action delete openchecks/record-check-deposit
+  wsk action delete openchecks/parse-check-with-ocr
+  wsk action delete openchecks/scan-sequence
+  wsk action delete openchecks/deposit-sequence
 
   echo "Removing packages..."
   wsk package delete "$CLOUDANT_INSTANCE"
+  wsk package delete openchecks
 
   echo -e "${GREEN}Uninstall Complete${NC}"
 }

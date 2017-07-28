@@ -10,45 +10,50 @@ From this point forward, you can instead just run the following commands to set 
 
 Otherwise, read on if you want to understand how all the OpenWhisk actions, triggers, and rules come together or if you want to set them up yourself.
 
+## Make environment variables available
+
+```bash
+source local.env
+```
+
 ## Create custom actions
+
+- Create a package to use as a namespace for shared environment variables
+
+  ```bash
+  wsk package create openchecks \
+  --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
+  --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
+  --param CLOUDANT_ARCHIVED_DATABASE "$CLOUDANT_ARCHIVED_DATABASE" \
+  --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
+  --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
+  --param CLOUDANT_REJECTED_DATABASE "$CLOUDANT_REJECTED_DATABASE" \
+  --param CLOUDANT_PROCESSED_DATABASE "$CLOUDANT_PROCESSED_DATABASE" \
+  --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
+  --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
+  --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
+  --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
+  --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME" \
+  --param SENDGRID_API_KEY "$SENDGRID_API_KEY" \
+  --param SENDGRID_FROM_ADDRESS "$SENDGRID_FROM_ADDRESS"
+  ```
 
 - Create the action to poll for new checks:
 
   ```bash
-  wsk action create find-new-checks actions/find-new-checks.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
-    --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
-    --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
-    --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
-    --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME"
+  wsk action create openchecks/find-new-checks actions/find-new-checks.js
   ```
 
 - Create the action to save check images:
 
   ```bash
-  wsk action create save-check-images actions/save-check-images.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param CLOUDANT_ARCHIVED_DATABASE "$CLOUDANT_ARCHIVED_DATABASE" \
-    --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
-    --param OBJECT_STORAGE_USER_ID "$OBJECT_STORAGE_USER_ID" \
-    --param OBJECT_STORAGE_PASSWORD "$OBJECT_STORAGE_PASSWORD" \
-    --param OBJECT_STORAGE_PROJECT_ID "$OBJECT_STORAGE_PROJECT_ID" \
-    --param OBJECT_STORAGE_REGION_NAME "$OBJECT_STORAGE_REGION_NAME" \
-    --param OBJECT_STORAGE_INCOMING_CONTAINER_NAME "$OBJECT_STORAGE_INCOMING_CONTAINER_NAME"
+  wsk action create openchecks/save-check-images actions/save-check-images.js
   ```
 
 - Create the action to parse check data:
 
   ```bash
-  wsk action create parse-check-data actions/parse-check-data.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
-    --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
-    --param CLOUDANT_REJECTED_DATABASE "$CLOUDANT_REJECTED_DATABASE"
+  wsk action create openchecks/parse-check-data actions/parse-check-data.js
   ```
 
 - Create the action to execute the optical character recognition:
@@ -56,22 +61,25 @@ Otherwise, read on if you want to understand how all the OpenWhisk actions, trig
   ```bash
   docker login --username "$DOCKER_HUB_USERNAME" --password "$DOCKER_HUB_PASSWORD"
   sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_HUB_USERNAME/ocr-micr"
-  wsk action create parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
+  wsk action create openchecks/parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
   ```
 
 - Create the action to record the check deposit:
 
   ```bash
-  wsk action create record-check-deposit actions/record-check-deposit.js \
-    --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
-    --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
-    --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
-    --param CLOUDANT_PROCESSED_DATABASE "$CLOUDANT_PROCESSED_DATABASE" \
-    --param SENDGRID_API_KEY "$SENDGRID_API_KEY" \
-    --param SENDGRID_FROM_ADDRESS "$SENDGRID_FROM_ADDRESS"
+  wsk action create openchecks/record-check-deposit actions/record-check-deposit.js
   ```
 
 ## Create custom triggers and rules
+
+- Bind the database
+
+  ```bash
+  wsk package bind /whisk.system/cloudant "$CLOUDANT_INSTANCE" \
+    --param username "$CLOUDANT_USERNAME" \
+    --param password "$CLOUDANT_PASSWORD" \
+    --param host "$CLOUDANT_USERNAME.cloudant.com"
+  ```
 
 - Create the triggers for the Cloudant feeds:
 
@@ -95,20 +103,19 @@ Otherwise, read on if you want to understand how all the OpenWhisk actions, trig
 - Create the sequences for handling the database changes:
 
   ```bash
-  wsk action create scan-sequence \
-    --sequence /_/$CLOUDANT_INSTANCE/read,parse-check-data
-  wsk action create deposit-sequence \
-    --sequence /_/$CLOUDANT_INSTANCE/read,record-check-deposit
+  wsk action create openchecks/scan-sequence \
+    --sequence /_/$CLOUDANT_INSTANCE/read,openchecks/parse-check-data
+  wsk action create openchecks/deposit-sequence \
+    --sequence /_/$CLOUDANT_INSTANCE/read,openchecks/record-check-deposit
   ```
 
 - Create the rules linking the triggers to the actions:
 
   ```bash
-  wsk rule create fetch-checks poll-for-incoming-checks find-new-checks
-  wsk rule create scan-checks check-ready-to-scan scan-sequence
-  wsk rule create deposit-checks check-ready-for-deposit deposit-sequence
+  wsk rule create fetch-checks poll-for-incoming-checks openchecks/find-new-checks
+  wsk rule create scan-checks check-ready-to-scan openchecks/scan-sequence
+  wsk rule create deposit-checks check-ready-for-deposit openchecks/deposit-sequence
   ```
-
 
 ## Running the sample
 

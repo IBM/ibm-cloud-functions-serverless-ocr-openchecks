@@ -59,7 +59,7 @@ function main(params) {
           var tasks = files.map(function(file) {
             return function(callback) {
               asyncCallSaveCheckImagesAction(
-                "/_/save-check-images",
+                "/_/openchecks/save-check-images",
                 file.name,
                 file.content_type,
                 file.last_modified,

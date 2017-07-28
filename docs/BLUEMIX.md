@@ -1,6 +1,6 @@
 # Setting up the environment
 
-This document describes how to use Bluemix to set up the Cloudant database, Object Storage services, and SendGrid email service. You'll also need a [Docker Hub](https://hub.docker.com/) account.
+This document describes how to use Bluemix to set up the Cloudant database, Object Storage service, and SendGrid email service. You'll also need a [Docker Hub](https://hub.docker.com/) account.
 
 After completing the steps here, proceed to [set up the OpenWhisk actions, triggers, and rules](OPENWHISK.md).
 
@@ -13,6 +13,8 @@ Start by copying `template.local.env` to a new `local.env` file. You can fill in
 Log into the [Bluemix console](https://console.ng.bluemix.net/) and create a [Cloudant instance](https://console.ng.bluemix.net/catalog/services/cloudant-nosql-db/?taxonomyNavigation=services&env_id=ibm:yp:us-south) named `cloudant-openchecks`. You can reuse an existing instance if you already have one. Update `CLOUDANT_INSTANCE` in `local.env` to reflect the name of the Cloudant service instance if you name it something else.
 
 Then set the `CLOUDANT_USERNAME` and `CLOUDANT_PASSWORD` values in `local.env` based on the service credentials for the service.
+
+> **Note**: The Cloudant service credentials and connectivity details can be automatically bound to the OpenWhisk context with `wsk package refresh`, as they are in many [simpler use cases](https://github.com/IBM/openwhisk-cloudant-trigger). However, since we are writing more than a simple JSON object back to Cloudant, we will use the Cloudant NPM client directly with the credentials, rather than through the Cloudant packaged write action.
 
 Log into the Cloudant console and create five databases. Set their names in the `CLOUDANT_ARCHIVED_DATABASE`, `CLOUDANT_AUDITED_DATABASE`, `CLOUDANT_PARSED_DATABASE`, `CLOUDANT_REJECTED_DATABASE`, and `CLOUDANT_PROCESSED_DATABASE` variables.
 
