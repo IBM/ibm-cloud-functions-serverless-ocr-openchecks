@@ -65,7 +65,7 @@ function main(params) {
           // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
           function(callback) {
             console.log('[parse-check-data.main] Executing OCR parse of check');
-            asyncCallOcrParseAction("/_/parse-check-with-ocr",
+            asyncCallOcrParseAction("/_/openchecks/parse-check-with-ocr",
               params.CLOUDANT_USERNAME,
               params.CLOUDANT_PASSWORD,
               params.CLOUDANT_AUDITED_DATABASE,
