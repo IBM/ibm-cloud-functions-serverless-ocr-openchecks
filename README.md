@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/IBM/openchecks.svg?branch=master)](https://travis-ci.org/IBM/openchecks)
 
-# Project OpenChecks - Bank deposit processing with OpenWhisk
+# Retail banking check deposit processing with OpenWhisk
 
 This project demonstrates [serverless technology - powered by Apache OpenWhisk on IBM Bluemix -](https://developer.ibm.com/opentech/2016/09/06/what-makes-serverless-attractive/) in the context of a retail banking scenario where deposited checks are processed digitally (such as through a mobile banking app) using optical character recognition (OCR).
 
