@@ -1,8 +1,10 @@
 [![Build Status](https://travis-ci.org/IBM/openchecks.svg?branch=master)](https://travis-ci.org/IBM/openchecks)
 
-# Project OpenChecks - Bank deposit processing with OpenWhisk
+# Retail banking check deposit processing with OpenWhisk
 
-This project demonstrates [serverless technology - powered by Apache OpenWhisk on IBM Bluemix -](https://developer.ibm.com/opentech/2016/09/06/what-makes-serverless-attractive/) in the context of a retail banking scenario. This project shows how OpenWhisk can be used for an event-driven, serverless architecture that processes the deposit of checks to a bank account (such as through a mobile banking app) using optical character recognition. This sort of use case is ideal for compute-intensive and highly elastic payday deposit processing where the workload spikes for one particular timeframe every two weeks.
+This project demonstrates [serverless technology - powered by Apache OpenWhisk on IBM Bluemix -](https://developer.ibm.com/opentech/2016/09/06/what-makes-serverless-attractive/) in the context of a retail banking scenario where deposited checks are processed digitally (such as through a mobile banking app) using optical character recognition (OCR).
+
+This sort of use case is ideal for a serverless architecture because it addresses compute-intensive and highly elastic payday deposit processing where the workload spikes for one particular timeframe every two weeks.
 
 It also highlights a few OpenWhisk programming model concepts, which include rules, triggers, sequences, and invoking actions from other actions directly. Furthermore, it demonstrates a use case where polyglot development is applied in order to package an third-party C library for OCR as an action.
 
