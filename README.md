@@ -12,7 +12,7 @@ You should have a basic understanding of the OpenWhisk programming model. If not
 
 It is currently built on the public Bluemix OpenWhisk service and relies on Cloudant and SoftLayer Object Storage. On premises, it could use CouchDB and OpenStack Swift. Other storage services could include FileNet or Cleversafe. [Tesseract](https://github.com/tesseract-ocr/tesseract) provides the OCR library.
 
-![Check 12](images/overview.png "Overview of the flow.")
+![Check 12](images/openchecks-arch.png "Overview of the flow.")
 
 ## Components
 
