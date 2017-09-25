@@ -31,7 +31,7 @@ function install() {
   # Exit if any command fails
   set -e
 
-  echo -e "${YELLOW}Installing OpenWhisk actions, triggers, and rules for check-deposit..."
+  echo -e "${YELLOW}Installing Apache OpenWhisk actions, triggers, and rules on IBM Cloud Functions..."
 
   echo "Binding Cloudant package"
   wsk package bind /whisk.system/cloudant "$CLOUDANT_INSTANCE" \

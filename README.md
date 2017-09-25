@@ -1,32 +1,34 @@
 [![Build Status](https://travis-ci.org/IBM/openchecks.svg?branch=master)](https://travis-ci.org/IBM/openchecks)
 
-# Retail banking check deposit processing with OpenWhisk
+# Serverless check deposit processing with Apache OpenWhisk on IBM Cloud Functions
 
-This project demonstrates [serverless technology - powered by Apache OpenWhisk on IBM Bluemix -](https://developer.ibm.com/opentech/2016/09/06/what-makes-serverless-attractive/) in the context of a retail banking scenario where deposited checks are processed digitally (such as through a mobile banking app) using optical character recognition (OCR).
+This project demonstrates [serverless technology - powered by Apache OpenWhisk with IBM Cloud Functions -](https://developer.ibm.com/opentech/2016/09/06/what-makes-serverless-attractive/) in the context of a retail banking scenario where deposited checks are processed digitally (such as through a mobile banking app) using optical character recognition (OCR).
 
 This sort of use case is ideal for a serverless architecture because it addresses compute-intensive and highly elastic payday deposit processing where the workload spikes for one particular timeframe every two weeks.
 
-It also highlights a few OpenWhisk programming model concepts, which include rules, triggers, sequences, and invoking actions from other actions directly. Furthermore, it demonstrates a use case where polyglot development is applied in order to package an third-party C library for OCR as an action.
+You can learn more about this scenario in the [IBM Code blog post](https://developer.ibm.com/code/2017/09/21/serverless-architectures-retail-banking/) and associated [Journey](https://developer.ibm.com/code/journey/automatically-scale-to-handle-peaks-in-banking-transaction-demand/).
+
+It also highlights a few OpenWhisk development concepts, which include rules, triggers, sequences, and invoking actions from other actions directly. Furthermore, it demonstrates a use case where polyglot development is applied in order to package an third-party C library for OCR as an action.
 
 You should have a basic understanding of the OpenWhisk programming model. If not, [try the action, trigger, and rule demo first](https://github.com/IBM/openwhisk-action-trigger-rule). You'll also need a Bluemix account and the latest [OpenWhisk command line tool (`wsk`) installed and on your PATH](https://github.com/IBM/openwhisk-action-trigger-rule/blob/master/docs/OPENWHISK.md).
 
-It is currently built on the public Bluemix OpenWhisk service and relies on Cloudant and SoftLayer Object Storage. On premises, it could use CouchDB and OpenStack Swift. Other storage services could include FileNet or Cleversafe. [Tesseract](https://github.com/tesseract-ocr/tesseract) provides the OCR library.
+It is currently built on the public Cloud Functions service and relies on Cloudant and SoftLayer Object Storage. On premises, it could use Apache CouchDB and OpenStack Swift. Other storage services could include FileNet or Cleversafe. [Tesseract](https://github.com/tesseract-ocr/tesseract) provides the OCR library.
 
 ![Check 12](images/openchecks-arch.png "Overview of the flow.")
 
 ## Components
 
-- Apache OpenWhisk on Bluemix
+- Apache OpenWhisk via IBM Cloud Functions
 - Object Storage on Bluemix
 - Apache CouchDB (IBM Cloudant on Bluemix)
 - SendGrid on Bluemix
 - Docker Hub
 
-## Bank deposit processing with OpenWhisk
+## Retail bank deposit processing with OpenWhisk
 
 This project uses a set of actions and triggers linked by rules to process images that are added to an object storage service. When new checks are detected a workflow downloads, resizes, archives, and reads the checks then it invokes an external system to handle the transaction.
 
-Most of the actions are written in JavaScript using the default Node.js version 6 environment on Bluemix. One of the actions is written as a shell script and packaged in a Docker container. This shows both the polyglot nature of OpenWhisk, as well as the ability to package any arbitrary program, as is needed in this case to leverage an OCR library.
+Most of the actions are written in JavaScript using the default Node.js version 6 environment on Cloud Functions. One of the actions is written as a shell script and packaged in a Docker container. This shows both the polyglot nature of OpenWhisk, as well as the ability to package any arbitrary program, as is needed in this case to leverage an OCR library.
 
 ## Primary workflow
 
