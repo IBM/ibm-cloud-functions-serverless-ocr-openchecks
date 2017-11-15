@@ -6,7 +6,7 @@ This project demonstrates [serverless technology - powered by Apache OpenWhisk w
 
 This sort of use case is ideal for a serverless architecture because it addresses compute-intensive and highly elastic payday deposit processing where the workload spikes for one particular timeframe every two weeks.
 
-You can learn more about this scenario in the [IBM Code blog post](https://developer.ibm.com/code/2017/09/21/serverless-architectures-retail-banking/) and associated [Journey](https://developer.ibm.com/code/journey/automatically-scale-to-handle-peaks-in-banking-transaction-demand/).
+You can learn more about this scenario in the [IBM Code blog post](https://developer.ibm.com/code/2017/09/21/serverless-architectures-retail-banking/) and associated [Code Pattern](https://developer.ibm.com/code/journey/automatically-scale-to-handle-peaks-in-banking-transaction-demand/). You can also see a deeper dive and extended demo with the [Tech Talk replay](https://developer.ibm.com/code/videos/tech-talk-replay-build-faster-banking-apps-ibm-cloud-functions/).
 
 It also highlights a few OpenWhisk development concepts, which include rules, triggers, sequences, and invoking actions from other actions directly. Furthermore, it demonstrates a use case where polyglot development is applied in order to package an third-party C library for OCR as an action.
 
