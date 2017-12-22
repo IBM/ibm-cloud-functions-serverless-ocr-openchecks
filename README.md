@@ -12,7 +12,7 @@ It also highlights a few OpenWhisk development concepts, which include rules, tr
 
 You should have a basic understanding of the OpenWhisk programming model. If not, [try the action, trigger, and rule demo first](https://github.com/IBM/openwhisk-action-trigger-rule). You'll also need a Bluemix account and the latest [OpenWhisk command line tool (`wsk`) installed and on your PATH](https://github.com/IBM/openwhisk-action-trigger-rule/blob/master/docs/OPENWHISK.md).
 
-It is currently built on the public Cloud Functions service and relies on Cloudant and SoftLayer Object Storage. On premises, it could use Apache CouchDB and OpenStack Swift. Other storage services could include FileNet or Cleversafe. [Tesseract](https://github.com/tesseract-ocr/tesseract) provides the OCR library.
+It is currently built on the public Cloud Functions service and relies on Cloudant and SoftLayer Object Storage. On-premises, it could use Apache CouchDB and OpenStack Swift. Other storage services could include FileNet or Cleversafe. [Tesseract](https://github.com/tesseract-ocr/tesseract) provides the OCR library.
 
 ![Check 12](images/openchecks-arch.png "Overview of the flow.")
 
@@ -46,7 +46,7 @@ Most of the actions are written in JavaScript using the default Node.js version 
 
 - A `check-ready-for-deposit` trigger is then fired by that change to the `parsed` database and invokes another action, [`record-check-deposit`](actions/record-check-deposit.js).
 
-- This [`record-check-deposit`](actions/record-check-deposit.js) action retrieves the account details from the `parsed` record, logs the transaction in the `processed` database and sends an email with SendGrid (simulating connectivity to external system).
+- This [`record-check-deposit`](actions/record-check-deposit.js) action retrieves the account details from the `parsed` record, logs the transaction in the `processed` database and sends an email with SendGrid (simulating connectivity to an external system).
 
 ## Sample check images
 
