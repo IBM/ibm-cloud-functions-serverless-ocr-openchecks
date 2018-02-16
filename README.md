@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/IBM/openchecks.svg?branch=master)](https://travis-ci.org/IBM/openchecks)
+[![Build Status](https://travis-ci.org/IBM/ibm-cloud-functions-serverless-ocr-openchecks.svg?branch=master)](https://travis-ci.org/IBM/ibm-cloud-functions-serverless-ocr-openchecks)
 
 # Serverless check deposit processing with Apache OpenWhisk on IBM Cloud Functions
 
