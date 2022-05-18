@@ -15,9 +15,12 @@
  */
 
 var openwhisk = require('openwhisk');
-var request = require('request');
 var async = require('async');
 var fs = require('fs');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+var ibm = require('ibm-cos-sdk');
+const { URLSearchParams } = require('url');
+
 
 /**
  * This action is triggered by a new check image added to object storage, or in this case a CouchDB database.
@@ -26,9 +29,8 @@ var fs = require('fs');
  * 1. Fetch the record from the 'incoming' object storage container.
  * 2. Process the image for account, routing number, and amount move it to another 'processed' database with metadata and a confidence score.
  *
- * @param   params.OBJECT_STORAGE_USER_ID                   Object storage user id
- * @param   params.OBJECT_STORAGE_PASSWORD                  Object storage password
- * @param   params.OBJECT_STORAGE_PROJECT_ID                Object storage project id
+ * @param   params.OBJECT_STORAGE_API_KEY                   Object storage api key
+ * @param   params.OBJECT_STORAGE_CRN                  Object storage crn
  * @param   params.OBJECT_STORAGE_REGION_NAME               Object storage region
  * @param   params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME   Object storage container where the image is
  * @return                                                  Standard OpenWhisk success/error response
@@ -36,55 +38,57 @@ var fs = require('fs');
 function main(params) {
   console.log("Retrieving file list");
 
-  var wsk = openwhisk();
+  // var wsk = openwhisk();
 
-  // Configure object storage connection
   var os = new ObjectStorage(
-    params.OBJECT_STORAGE_REGION_NAME,
-    params.OBJECT_STORAGE_PROJECT_ID,
-    params.OBJECT_STORAGE_USER_ID,
-    params.OBJECT_STORAGE_PASSWORD
+    params.OBJECT_STORAGE_REGION_NAME, 
+    params.OBJECT_STORAGE_API_KEY, 
+    params.OBJECT_STORAGE_CRN
   );
 
-  return new Promise(function(resolve, reject) {
-    os.authenticate(function(err, response, body) {
+  os.listFiles(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, function (err, files) {
+    
+    if (err) {
+      console.log(err, err.stack)
+      // whisk.done(null, err); // whisk is not defined in original repo
+    }
+
+    if (!files || !files['Contents']) {
+      console.log("0 files found.");
+      whisk.done(null, err); // err handling 
+
+    }
+
+    console.log(files);
+    console.log("Found", files["Contents"].length, "file(s)");
+  })
+
+    /*
+    var tasks = files["Contents"].map(function(file) {
+      return function(callback) {
+        asyncCallSaveCheckImagesAction(
+          "/_/openchecks/save-check-images",
+          file.Key,
+          file.LastModified,
+          callback
+        );
+      };
+    });
+
+    async.waterfall(tasks, function(err, result) {
       if (err) {
-        console.log("Authentication failure", err);
-        whisk.done(null, err);
+        console.log("Error", err);
+        reject(err);
       } else {
-        os.listFiles(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, function(err, response, files) {
-          console.log(files);
-          console.log("Found", files.length, "files");
-
-          var tasks = files.map(function(file) {
-            return function(callback) {
-              asyncCallSaveCheckImagesAction(
-                "/_/openchecks/save-check-images",
-                file.name,
-                file.content_type,
-                file.last_modified,
-                callback
-              );
-            };
-          });
-
-          async.waterfall(tasks, function(err, result) {
-            if (err) {
-              console.log("Error", err);
-              reject(err);
-            } else {
-              resolve({
-                status: "Success"
-              });
-            }
-          });
-
+        resolve({
+          status: "Success"
         });
       }
     });
   });
-
+  */
 }
+
 
 /**
  * This function provides a way to invoke other OpenWhisk actions directly and asynchronously
@@ -96,7 +100,7 @@ function main(params) {
  * @param   callback      Cloudant password (set once at action update time)
  * @return                The reference to a configured object storage instance
  */
-function asyncCallSaveCheckImagesAction(actionName, fileName, contentType, lastModified, callback) {
+function asyncCallSaveCheckImagesAction(actionName, fileName, lastModified, callback) {
   console.log("Calling", actionName, "for", fileName);
 
   var wsk = openwhisk();
@@ -106,7 +110,7 @@ function asyncCallSaveCheckImagesAction(actionName, fileName, contentType, lastM
       "actionName": actionName,
       "params": {
         fileName: fileName,
-        contentType: contentType,
+        // contentType: contentType,
         lastModified: lastModified
       },
     }).then(
@@ -124,67 +128,55 @@ function asyncCallSaveCheckImagesAction(actionName, fileName, contentType, lastM
 
 }
 
-/**
- * This is an adapter class for OpenStack OBJECT_STORAGE based object storage.
- *
- * @param   region      The id of the record in the Cloudant 'processed' database
- * @param   projectId   Cloudant username (set once at action update time)
- * @param   userId      Cloudant password (set once at action update time)
- * @param   password    Cloudant password (set once at action update time)
- * @return              The reference to a configured object storage instance
- */
-function ObjectStorage(region, projectId, userId, password) {
+
+
+function ObjectStorage(region, apiKey, osInstanceId) {
   var self = this;
 
-  if (region === "dallas") {
-    self.baseUrl = "https://dal.objectstorage.open.softlayer.com/v1/AUTH_" + projectId + "/";
-  } else if (region == "london") {
-    self.baseUrl = "https://lon.objectstorage.open.softlayer.com/v1/AUTH_" + projectId + "/";
-  } else {
-    throw new Error("Invalid Region");
+  self.baseUrl = "https://s3." + region + ".cloud-object-storage.appdomain.cloud/"
+
+  var config = {
+    endpoint: self.baseUrl,
+    apiKeyId: apiKey,
+    serviceInstanceId: osInstanceId
   }
 
-  self.authenticate = function(callback) {
-    request({
-      uri: "https://identity.open.softlayer.com/v3/auth/tokens",
-      method: 'POST',
-      json: {
-        "auth": {
-          "identity": {
-            "methods": [
-              "password"
-            ],
-            "password": {
-              "user": {
-                "id": userId,
-                "password": password
-              }
-            }
-          },
-          "scope": {
-            "project": {
-              "id": projectId
-            }
-          }
-        }
-      }
-    }, function(err, response, body) {
-      if (!err) {
-        self.token = response.headers["x-subject-token"];
-      }
-      callback(err, response, body);
-    });
-  };
+  self.cos = new ibm.S3(config);
+  self.token = null;
 
-  self.listFiles = function(container, callback) {
-    request({
-      uri: self.baseUrl + container,
-      method: 'GET',
+  self.getIAMToken = function(apiKey) {
+    var options = {
+      method: 'POST',
       headers: {
-        "X-Auth-Token": self.token,
-        "Accept": "application/json"
+        'Content-Type': 'application/x-www-form-urlencoded'
       },
-      json: true
-    }, callback);
+      body: new URLSearchParams({
+        "apikey": apiKey,
+        "response_type": "cloud_iam",
+        "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
+      })
+    }
+
+    const iamURL = "https://iam.cloud.ibm.com/oidc/token";
+    
+    return new Promise((resolve, reject) => {
+      fetch(iamURL, options).then(response => 
+        response.json()
+      ).then(data => {
+        console.log("reached");
+        self.token = data.access_token;
+        console.log(self);
+        return resolve(data.access_token);
+      }).catch(err => {
+        reject(err)
+      })
+    })
+  }
+
+
+  self.listFiles = function(bucket, callback) {
+    self.cos.listObjectsV2({Bucket: bucket}, callback)
   };
 }
+
+main(params)

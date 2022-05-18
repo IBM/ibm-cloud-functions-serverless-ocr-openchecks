@@ -15,14 +15,18 @@
  */
 
 var openwhisk = require('openwhisk');
-var request = require('request');
 var async = require('async');
 var fs = require('fs');
 var uuid = require('node-uuid');
 var gm = require('gm').subClass({
   imageMagick: true
 });
-var Cloudant = require('cloudant');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+var Cloudant = require('@cloudant/cloudant');
+var ibm = require('ibm-cos-sdk');
+const { promisify } = require('util');
+const { pipeline} = require('stream');
+
 
 /**
  * This action is invoked when new check images are found in object storage.
@@ -35,31 +39,46 @@ var Cloudant = require('cloudant');
  *
  * @param   params.CLOUDANT_USERNAME                        Cloudant username
  * @param   params.CLOUDANT_PASSWORD                        Cloudant password
+ * @param   params.CLOUDANT_HOST                            Cloudant Host
  * @param   params.CLOUDANT_ARCHIVED_DATABASE               Cloudant database to store the resized copies to
  * @param   params.CLOUDANT_AUDITED_DATABASE                Cloudant database to store the original copy to
- * @param   params.OBJECT_STORAGE_USER_ID                   Object storage user id
- * @param   params.OBJECT_STORAGE_PASSWORD                  Object storage password
- * @param   params.OBJECT_STORAGE_PROJECT_ID                Object storage project id
+ * @param   params.OBJECT_STORAGE_API_KEY                   Object storage api key
+ * @param   params.OBJECT_STORAGE_CRN                       Object storage crn
  * @param   params.OBJECT_STORAGE_REGION_NAME               Object storage region
  * @param   params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME   Object storage container where the image is
  * @return                                                  Standard OpenWhisk success/error response
  */
+
+const params = {
+  "CLOUDANT_USERNAME": "apikey-v2-x6ft2ndlc2if2ns1ce2uzioi4865l25ew0hc6vy10tj",
+  "CLOUDANT_PASSWORD": "83b068926ca76e8ce9b1b4719f4fe937",
+  "CLOUDANT_HOST": "https://5c1166e4-4385-491c-8d36-4ba97072d64f-bluemix.cloudantnosqldb.appdomain.cloud",
+  "CLOUDANT_ARCHIVED_DATABASE": "archived",
+  "CLOUDANT_AUDITED_DATABASE": "audited",
+  "OBJECT_STORAGE_REGION_NAME": "us-south",
+  "OBJECT_STORAGE_API_KEY": "1Tpq-JyhT1TKPwCxbA7tbg7d9qU63N5tDds8SH-NF2cC",
+  "OBJECT_STORAGE_CRN": "crn:v1:bluemix:public:cloud-object-storage:global:a/fcb7caf260ce478d9fb34f87bfc8a356:35ad5079-54e4-4950-966d-f90b2e39e2dc::",
+  "OBJECT_STORAGE_INCOMING_CONTAINER_NAME": "compliance-openchecks",
+  "fileName": "Screenshot%20from%202022-03-14%2017-42-59.png",
+};
+
+
 function main(params) {
 
   // Configure database connection
   var cloudant = new Cloudant({
+    url: params.CLOUDANT_HOST,
     account: params.CLOUDANT_USERNAME,
-    password: params.CLOUDANT_PASSWORD
+    password: params.CLOUDANT_PASSWORD,
   });
   var archivedDb = cloudant.db.use(params.CLOUDANT_ARCHIVED_DATABASE);
   var auditedDb = cloudant.db.use(params.CLOUDANT_AUDITED_DATABASE);
 
   // Configure object storage connection
   var os = new ObjectStorage(
-    params.OBJECT_STORAGE_REGION_NAME,
-    params.OBJECT_STORAGE_PROJECT_ID,
-    params.OBJECT_STORAGE_USER_ID,
-    params.OBJECT_STORAGE_PASSWORD
+    params.OBJECT_STORAGE_REGION_NAME, 
+    params.OBJECT_STORAGE_API_KEY, 
+    params.OBJECT_STORAGE_CRN
   );
 
   // For the 50% and 25% scaled images and image type
@@ -72,25 +91,27 @@ function main(params) {
   return new Promise(function(resolve, reject) {
     async.waterfall([
 
-        // Authenticate to object storage
-        function(callback) {
-          console.log("Authenticating...");
-          os.authenticate(function(err, response, body) {
-            return callback(err);
-          });
-        },
+      function(callback) {
+        console.log("Authenticating", params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME);
+        os.authenticate(callback).then(() => {
+          return callback(null);
+        }).catch(err => {
+          console.log("error", err);
+        })
+      },
 
         // Get the file on disk as a temp file
         function(callback) {
           console.log("Downloading", params.fileName);
           os.downloadFile(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, params.fileName, fs.createWriteStream(params.fileName), function(err) {
             return callback(err);
-          });
+          }).then(() => {
+            return callback(null);
+          })
         },
 
         // Copy and resize the file to two smaller versions
         function(callback) {
-
           console.log("Creating resized images.");
           if (fileExtension == "bmp" || fileExtension == "jpg" || fileExtension == "png" || fileExtension == "gif") {
             console.log("Resizing image to 300px wide");
@@ -128,6 +149,7 @@ function main(params) {
           });
         },
 
+        
         // Save original image data to Cloudant with an enriched name
         function(data, callback) {
           var uuid1 = uuid.v1();
@@ -164,6 +186,7 @@ function main(params) {
           );
         },
 
+  
         // Open medium file to memory and send it to the next function
         function(callback) {
           console.log("Opening medium file");
@@ -257,7 +280,6 @@ function main(params) {
             }
           });
         }
-
       ],
       function(err, result) {
         if (err) {
@@ -284,89 +306,80 @@ function main(params) {
  * @param   password    Cloudant password (set once at action update time)
  * @return              The reference to a configured object storage instance
  */
-function ObjectStorage(region, projectId, userId, password) {
+function ObjectStorage(region, apiKey, osInstanceId) {
   var self = this;
 
-  if (region === "dallas") {
-    self.baseUrl = "https://dal.objectstorage.open.softlayer.com/v1/AUTH_" + projectId + "/";
-  } else if (region == "london") {
-    self.baseUrl = "https://lon.objectstorage.open.softlayer.com/v1/AUTH_" + projectId + "/";
-  } else {
-    throw new Error("Invalid Region");
+  self.baseUrl = "https://s3." + region + ".cloud-object-storage.appdomain.cloud/"
+
+  var config = {
+    endpoint: self.baseUrl,
+    apiKeyId: apiKey,
+    serviceInstanceId: osInstanceId
   }
 
+  var cos = new ibm.S3(config);
+  
+
   self.authenticate = function(callback) {
-    request({
-      uri: "https://identity.open.softlayer.com/v3/auth/tokens",
+    var options = {
       method: 'POST',
-      json: {
-        "auth": {
-          "identity": {
-            "methods": [
-              "password"
-            ],
-            "password": {
-              "user": {
-                "id": userId,
-                "password": password
-              }
-            }
-          },
-          "scope": {
-            "project": {
-              "id": projectId
-            }
-          }
-        }
-      }
-    }, function(err, response, body) {
-      if (!err) {
-        self.token = response.headers["x-subject-token"];
-      }
-      if (callback) {
-        callback(err, response, body);
-      }
-    });
-  };
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        "apikey": apiKey,
+        "response_type": "cloud_iam",
+        "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
+      })
+    }
+
+    const iamURL = "https://iam.cloud.ibm.com/oidc/token";
+    
+    return new Promise((resolve, reject) => {
+      fetch(iamURL, options).then(response => 
+        response.json()
+      ).then(data => {
+        self.token = data.access_token;
+        resolve(data.access_token);
+      }).catch(err => {
+        reject(err)
+      })
+    })
+  }
 
   self.downloadFile = function(container, file, outputStream, callback) {
-    request({
-      uri: self.baseUrl + container + "/" + file,
-      method: 'GET',
-      headers: {
-        "X-Auth-Token": self.token,
-        "Accept": "application/json"
-      }
-    }).pipe(outputStream).on('close', function() {
-      callback(null);
-    });
-  };
-
-  self.uploadFile = function(container, file, inputStream, callback) {
-    inputStream.pipe(
-      request({
-        uri: self.baseUrl + container + "/" + file,
-        method: 'PUT',
+    return new Promise((resolve, reject) => {
+    fetch(self.baseUrl + container + "/" + file, 
+      {
+        method: 'GET',
         headers: {
-          "X-Auth-Token": self.token,
-          "Accept": "application/json"
-        }
-      }, function(err, response, body) {
-        callback(err);
-      }));
+          'Authorization': "Bearer " + self.token
+      }     
+    }).then(data => {
+        const streamPipe = promisify(pipeline)
+        resolve(streamPipe(data.body, outputStream));
+    }).catch(err => {
+      reject(err); 
+    })
+   })
   };
 
   self.deleteFile = function(container, file, callback) {
-    request({
-      uri: self.baseUrl + container + "/" + file,
-      method: 'DELETE',
-      headers: {
-        "X-Auth-Token": self.token,
-        "Accept": "application/json"
-      }
-    }, function(err, response, body) {
-      callback(err);
-    });
+    return new Promise((resolve, reject) => {
+      fetch(self.baseUrl + container + "/" + file,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': "Bearer" + self.token
+          }
+        }
+      ).then(() => {
+        resolve();
+      }).catch((err) => {
+        reject(err);
+      })
+    })
   };
-
 }
+
+main(params);
