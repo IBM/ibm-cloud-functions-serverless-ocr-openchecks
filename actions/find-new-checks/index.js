@@ -35,10 +35,15 @@ const { URLSearchParams } = require('url');
  * @param   params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME   Object storage container where the image is
  * @return                                                  Standard OpenWhisk success/error response
  */
+
+// /*
+
+main(params);
+// */
+
+
 function main(params) {
   console.log("Retrieving file list");
-
-  // var wsk = openwhisk();
 
   var os = new ObjectStorage(
     params.OBJECT_STORAGE_REGION_NAME, 
@@ -46,47 +51,44 @@ function main(params) {
     params.OBJECT_STORAGE_CRN
   );
 
-  os.listFiles(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, function (err, files) {
-    
-    if (err) {
-      console.log(err, err.stack)
-      // whisk.done(null, err); // whisk is not defined in original repo
-    }
+  return new Promise((resolve, reject) => {
+      getIAMToken(params.OBJECT_STORAGE_API_KEY).then((access_token) => {
+        os.listFiles(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, function (err, files) {
 
-    if (!files || !files['Contents']) {
-      console.log("0 files found.");
-      whisk.done(null, err); // err handling 
+        if (err || !files || !files['Contents']) {
+          console.log(err);
+          console.log("0 files found.");
+          return;
+        }
 
-    }
-
-    console.log(files);
-    console.log("Found", files["Contents"].length, "file(s)");
-  })
-
-    /*
-    var tasks = files["Contents"].map(function(file) {
-      return function(callback) {
-        asyncCallSaveCheckImagesAction(
-          "/_/openchecks/save-check-images",
-          file.Key,
-          file.LastModified,
-          callback
-        );
-      };
-    });
-
-    async.waterfall(tasks, function(err, result) {
-      if (err) {
-        console.log("Error", err);
-        reject(err);
-      } else {
-        resolve({
-          status: "Success"
+        console.log(files);
+        console.log("Found", files["Contents"].length, "file(s)");
+        tasks = files["Contents"].map(function(file) {
+          return function(callback) {
+            asyncCallSaveCheckImagesAction(
+              "openchecks/save-check-images",
+              file.Key,
+              file.LastModified,
+              params,
+              access_token,
+              callback
+            );
+          };
         });
-      }
+
+        async.waterfall(tasks, function(err, result) {
+          if (err) {
+            console.log("Error", err);
+            reject(err);
+          } else {
+            resolve({
+              status: "Success"
+            });
+          }
+        });
+      });
     });
   });
-  */
 }
 
 
@@ -100,17 +102,29 @@ function main(params) {
  * @param   callback      Cloudant password (set once at action update time)
  * @return                The reference to a configured object storage instance
  */
-function asyncCallSaveCheckImagesAction(actionName, fileName, lastModified, callback) {
+function asyncCallSaveCheckImagesAction(actionName, fileName, lastModified, params, access_token, callback) {
   console.log("Calling", actionName, "for", fileName);
 
-  var wsk = openwhisk();
+  const authHandler = {
+    getAuthHeader: () => {
+      return Promise.resolve('Bearer ' + access_token);
+    }
+  }
 
+  var options = {
+    apihost: params.OW_HOST,
+    api_key: params.OW_API_KEY,
+    auth_handler: authHandler,
+    namespace: params.OW_NAMESPACE
+  }
+
+  var wsk = openwhisk(options);
+  
   return new Promise(function(resolve, reject) {
     wsk.actions.invoke({
       "actionName": actionName,
       "params": {
         fileName: fileName,
-        // contentType: contentType,
         lastModified: lastModified
       },
     }).then(
@@ -125,26 +139,9 @@ function asyncCallSaveCheckImagesAction(actionName, fileName, lastModified, call
       }
     );
   });
-
 }
 
-
-
-function ObjectStorage(region, apiKey, osInstanceId) {
-  var self = this;
-
-  self.baseUrl = "https://s3." + region + ".cloud-object-storage.appdomain.cloud/"
-
-  var config = {
-    endpoint: self.baseUrl,
-    apiKeyId: apiKey,
-    serviceInstanceId: osInstanceId
-  }
-
-  self.cos = new ibm.S3(config);
-  self.token = null;
-
-  self.getIAMToken = function(apiKey) {
+function getIAMToken(apiKey) {
     var options = {
       method: 'POST',
       headers: {
@@ -157,26 +154,63 @@ function ObjectStorage(region, apiKey, osInstanceId) {
       })
     }
 
-    const iamURL = "https://iam.cloud.ibm.com/oidc/token";
+    const iamURL = "https://iam.cloud.ibm.com/identity/token";
     
     return new Promise((resolve, reject) => {
       fetch(iamURL, options).then(response => 
         response.json()
       ).then(data => {
-        console.log("reached");
-        self.token = data.access_token;
-        console.log(self);
+        console.log("Authentication success");
         return resolve(data.access_token);
       }).catch(err => {
         reject(err)
       })
     })
-  }
-
-
-  self.listFiles = function(bucket, callback) {
-    self.cos.listObjectsV2({Bucket: bucket}, callback)
-  };
 }
 
-main(params)
+function ObjectStorage(region, apiKey, osInstanceId) {
+  var self = this;
+
+  self.baseUrl = "https://s3." + region + ".cloud-object-storage.appdomain.cloud/"
+
+  var config = {
+    endpoint: self.baseUrl,
+    apiKeyId: apiKey,
+    serviceInstanceId: osInstanceId
+  }
+  
+  console.log(config);
+
+  self.cos = new ibm.S3(config);
+
+  self.listFiles = function(bucket, callback) {
+    self.cos.listObjectsV2({Bucket: bucket}, callback);
+  }
+
+  /*
+  self.listFiles = function(bucket, iamToken, callback) {
+    return new Promise((resolve, reject) => {
+      var options = {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + iamToken
+        }
+      }
+
+      var url = self.baseUrl + bucket;
+      console.log(url);
+      fetch(url ,options).then(data => 
+        data.text()
+      ).then(data => {
+        xml2Json(data, (err, result) => {
+          resolve(result.ListBucketResult.Contents);
+        })
+      }).catch(err => {
+        reject(err);
+      })
+    });
+  };
+  */
+}
+
+exports.main = main;

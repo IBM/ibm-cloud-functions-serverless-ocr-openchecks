@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 var openwhisk = require('openwhisk');
-var Cloudant = require('cloudant');
+var Cloudant = require('@cloudant/cloudant');
 var async = require('async');
 var fs = require('fs');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 /**
  * This action is triggered by a new check image added to a CouchDB database.
@@ -29,6 +30,7 @@ var fs = require('fs');
  *
  * @param   params._id                        The id of the inserted record in the Cloudant 'audit' database that triggered this action
  * @param   params.attachmentName
+ * @param   params.CLOUDANT_HOST              Cloudant endpoint (HOST)
  * @param   params.CLOUDANT_USERNAME          Cloudant username
  * @param   params.CLOUDANT_PASSWORD          Cloudant password
  * @param   params.CLOUDANT_AUDITED_DATABASE  Cloudant database to store the original copy to
@@ -36,15 +38,21 @@ var fs = require('fs');
  * @param   params.CLOUDANT_REJECTED_DATABASE Cloudant database to store the rejected check data to
  * @return                                    Standard OpenWhisk success/error response
  */
-function main(params) {
 
-  var wsk = openwhisk();
+/*
+
+main(params);
+*/
+
+function main(params) {
 
   // Configure database connection
   var cloudant = new Cloudant({
+    url: params.CLOUDANT_HOST,
     account: params.CLOUDANT_USERNAME,
     password: params.CLOUDANT_PASSWORD
   });
+
   var parsedDb = cloudant.db.use(params.CLOUDANT_PARSED_DATABASE);
   var rejectedDb = cloudant.db.use(params.CLOUDANT_REJECTED_DATABASE);
 
@@ -62,15 +70,27 @@ function main(params) {
 
     return new Promise(function(resolve, reject) {
       async.waterfall([
-          // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
+
           function(callback) {
+            console.log('Retreiving access_token..');
+            getIAMToken(params.CFXN_API_KEY).then((access_token) => {
+              return callback(null, access_token);
+            }).catch((err) => {
+              return callback(err);
+            })
+          },
+
+          // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
+          function(access_token, callback) {
             console.log('[parse-check-data.main] Executing OCR parse of check');
-            asyncCallOcrParseAction("/_/openchecks/parse-check-with-ocr",
+            asyncCallOcrParseAction("openchecks/parse-check-with-ocr",
               params.CLOUDANT_USERNAME,
               params.CLOUDANT_PASSWORD,
               params.CLOUDANT_AUDITED_DATABASE,
               params._id,
               params.attachmentName,
+              params,
+              access_token,
               callback
             );
           },
@@ -174,16 +194,30 @@ function main(params) {
  * @param   callback      Cloudant password (set once at action update time)
  * @return                The reference to a configured object storage instance
  */
-function asyncCallOcrParseAction(actionName, cloudantUser, cloudantPass, database, id, attachmentName, callback) {
+function asyncCallOcrParseAction(actionName, cloudantUser, cloudantPass, database, id, attachmentName, params, access_token, callback) {
   console.log("Calling", actionName, "for", id);
 
-  var wsk = openwhisk();
+  const authHandler = {
+    getAuthHeader: () => {
+      return Promise.resolve('Bearer ' + access_token);
+    }
+  }
+
+  var options = {
+    apihost: params.OW_HOST,
+    api_key: params.OW_API_KEY,
+    auth_handler: authHandler,
+    namespace: params.OW_NAMESPACE
+  }
+
+  var wsk = openwhisk(options);
 
   wsk.actions.invoke({
     "actionName": actionName,
     "params": {
       CLOUDANT_USERNAME: cloudantUser,
       CLOUDANT_PASSWORD: cloudantPass,
+      CLOUDANT_HOST: params.CLOUDANT_HOST,
       CLOUDANT_AUDITED_DATABASE: database,
       IMAGE_ID: id,
       ATTACHMENT_NAME: attachmentName
@@ -214,6 +248,32 @@ function BankCheckMicrInformation(routingNumber, accountNumber) {
   this.invalid = function() {
     return this.routingNumber.length != 9 || this.accountNumber.length === 2;
   }
+}
+
+function getIAMToken(apiKey) {
+    var options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        "apikey": apiKey,
+        "response_type": "cloud_iam",
+        "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
+      })
+    }
+
+    const iamURL = "https://iam.cloud.ibm.com/oidc/token";
+    
+    return new Promise((resolve, reject) => {
+      fetch(iamURL, options).then(response => 
+        response.json()
+      ).then(data => {
+        return resolve(data.access_token);
+      }).catch(err => {
+        reject(err)
+      })
+    })
 }
 
 /**
@@ -247,3 +307,5 @@ function parseMicrDataToBankingInformation(micrCheckRawInformation) {
 
   return new BankCheckMicrInformation(routingNumber, accountNumber);
 }
+
+exports.main = main;

@@ -1,0 +1,16 @@
+{
+  "name": "save-check-images",
+  "version": "1.0.0",
+  "description": "[![Build Status](https://travis-ci.org/IBM/ibm-cloud-functions-serverless-ocr-openchecks.svg?branch=master)](https://travis-ci.org/IBM/ibm-cloud-functions-serverless-ocr-openchecks)",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudant/cloudant": "^4.5.1",
+    "async": "^3.2.3",
+    "fs": "^0.0.1-security",
+    "gm": "^1.23.1",
+    "ibm-cos-sdk": "^1.11.0",
+    "node-fetch": "^3.2.4",
+    "openwhisk": "^3.21.6",
+    "uuid": "^8.3.2"
+  }
+}

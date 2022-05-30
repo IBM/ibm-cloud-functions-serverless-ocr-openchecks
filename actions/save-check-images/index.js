@@ -17,7 +17,7 @@
 var openwhisk = require('openwhisk');
 var async = require('async');
 var fs = require('fs');
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 var gm = require('gm').subClass({
   imageMagick: true
 });
@@ -49,22 +49,13 @@ const { pipeline} = require('stream');
  * @return                                                  Standard OpenWhisk success/error response
  */
 
-const params = {
-  "CLOUDANT_USERNAME": "apikey-v2-x6ft2ndlc2if2ns1ce2uzioi4865l25ew0hc6vy10tj",
-  "CLOUDANT_PASSWORD": "83b068926ca76e8ce9b1b4719f4fe937",
-  "CLOUDANT_HOST": "https://5c1166e4-4385-491c-8d36-4ba97072d64f-bluemix.cloudantnosqldb.appdomain.cloud",
-  "CLOUDANT_ARCHIVED_DATABASE": "archived",
-  "CLOUDANT_AUDITED_DATABASE": "audited",
-  "OBJECT_STORAGE_REGION_NAME": "us-south",
-  "OBJECT_STORAGE_API_KEY": "1Tpq-JyhT1TKPwCxbA7tbg7d9qU63N5tDds8SH-NF2cC",
-  "OBJECT_STORAGE_CRN": "crn:v1:bluemix:public:cloud-object-storage:global:a/fcb7caf260ce478d9fb34f87bfc8a356:35ad5079-54e4-4950-966d-f90b2e39e2dc::",
-  "OBJECT_STORAGE_INCOMING_CONTAINER_NAME": "compliance-openchecks",
-  "fileName": "Screenshot%20from%202022-03-14%2017-42-59.png",
-};
+/*
+
+main(params)
+*/
 
 
 function main(params) {
-
   // Configure database connection
   var cloudant = new Cloudant({
     url: params.CLOUDANT_HOST,
@@ -374,7 +365,7 @@ function ObjectStorage(region, apiKey, osInstanceId) {
           }
         }
       ).then(() => {
-        resolve();
+        resolve(null);
       }).catch((err) => {
         reject(err);
       })
@@ -382,4 +373,4 @@ function ObjectStorage(region, apiKey, osInstanceId) {
   };
 }
 
-main(params);
+exports.main = main;
