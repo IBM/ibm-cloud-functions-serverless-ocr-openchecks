@@ -29,8 +29,6 @@ const { pipeline} = require('stream');
 
 
 // local env
-const path = require('path')
-require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 
 /**
  * This action is invoked when new check images are found in object storage.
@@ -53,9 +51,11 @@ require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
  * @return                                                  Standard OpenWhisk success/error response
  */
 
-// */
-
+/*
+const path = require('path')
+require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 main(process.env);
+*/
 
 function main(params) {
   // Configure database connection
@@ -265,10 +265,12 @@ function main(params) {
         // When all the steps above have completed successfully, delete the file from the incoming folder
         function(callback) {
           console.log("Deleting processed file from", params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME);
-          os.deleteFile(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, params.fileName, callback, function(err) {
+          os.deleteFile(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, params.fileName, function(err) {
             if (err) {
+              console.log(err);
               return callback(err);
             } else {
+              console.log('deleted')
               return callback(null);
             }
           });
@@ -348,7 +350,6 @@ function ObjectStorage(region, apiKey, osInstanceId) {
           'Authorization': "Bearer " + self.token
       }     
     }).then(data => {
-      console.log(data);
         const streamPipe = promisify(pipeline)
         resolve(streamPipe(data.body, outputStream));
     }).catch(err => {
@@ -363,11 +364,11 @@ function ObjectStorage(region, apiKey, osInstanceId) {
         {
           method: 'DELETE',
           headers: {
-            'Authorization': "Bearer" + self.token
+            'Authorization': "Bearer " + self.token
           }
         }
-      ).then(() => {
-        resolve(null);
+      ).then((response) => {
+        resolve(response);
       }).catch((err) => {
         reject(err);
       })

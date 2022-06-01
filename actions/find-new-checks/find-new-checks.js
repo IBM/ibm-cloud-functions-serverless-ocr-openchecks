@@ -20,8 +20,6 @@ var fs = require('fs');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 var ibm = require('ibm-cos-sdk');
 const { URLSearchParams } = require('url');
-const path = require('path')
-require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 
 
 /**
@@ -38,15 +36,14 @@ require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
  * @return                                                  Standard OpenWhisk success/error response
  */
 
-// /*
-
+/*
+const path = require('path')
+require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 main(process.env);
-// */
+*/
 
 
 function main(params) {
-
-  console.log(process.env);
 
   console.log("Params", params);
   console.log("Retrieving file list");
@@ -185,8 +182,6 @@ function ObjectStorage(region, apiKey, osInstanceId) {
     serviceInstanceId: osInstanceId
   }
   
-  console.log(config);
-
   self.cos = new ibm.S3(config);
 
   self.listFiles = function(bucket, callback) {

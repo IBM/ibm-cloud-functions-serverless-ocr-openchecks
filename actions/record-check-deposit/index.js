@@ -20,8 +20,8 @@ var request = require('request');
 var async = require('async');
 
 // local env
-const path = require('path')
-require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
+// const path = require('path')
+// require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 
 /**
  * This action is fired in response to newly parsed check data. It then contacts an external payment system and sends a notification.

@@ -20,8 +20,6 @@ var fs = require('fs');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // local dev
-const path = require('path')
-require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 
 /**
  * This action is triggered by a new check image added to a CouchDB database.
@@ -44,6 +42,8 @@ require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
  */
 
 /*
+const path = require('path')
+require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 main(process.env);
 */
 
@@ -69,6 +69,7 @@ function main(params) {
   var timestamp;
 
   // We're only interested in changes to the database if they're inserts
+  console.log('Calling')
   if (!params.deleted) {
 
     return new Promise(function(resolve, reject) {
@@ -85,6 +86,7 @@ function main(params) {
 
           // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
           function(access_token, callback) {
+            console.log(access_token);
             console.log('[parse-check-data.main] Executing OCR parse of check');
             asyncCallOcrParseAction("openchecks/parse-check-with-ocr",
               params.CLOUDANT_USERNAME,
