@@ -20,6 +20,8 @@ var fs = require('fs');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 var ibm = require('ibm-cos-sdk');
 const { URLSearchParams } = require('url');
+const path = require('path')
+require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 
 
 /**
@@ -38,11 +40,15 @@ const { URLSearchParams } = require('url');
 
 // /*
 
-main(params);
+main(process.env);
 // */
 
 
 function main(params) {
+
+  console.log(process.env);
+
+  console.log("Params", params);
   console.log("Retrieving file list");
 
   var os = new ObjectStorage(
@@ -52,7 +58,7 @@ function main(params) {
   );
 
   return new Promise((resolve, reject) => {
-      getIAMToken(params.OBJECT_STORAGE_API_KEY).then((access_token) => {
+      getIAMToken(params.CFXN_API_KEY).then((access_token) => {
         os.listFiles(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, function (err, files) {
 
         if (err || !files || !files['Contents']) {
@@ -186,31 +192,4 @@ function ObjectStorage(region, apiKey, osInstanceId) {
   self.listFiles = function(bucket, callback) {
     self.cos.listObjectsV2({Bucket: bucket}, callback);
   }
-
-  /*
-  self.listFiles = function(bucket, iamToken, callback) {
-    return new Promise((resolve, reject) => {
-      var options = {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer ' + iamToken
-        }
-      }
-
-      var url = self.baseUrl + bucket;
-      console.log(url);
-      fetch(url ,options).then(data => 
-        data.text()
-      ).then(data => {
-        xml2Json(data, (err, result) => {
-          resolve(result.ListBucketResult.Contents);
-        })
-      }).catch(err => {
-        reject(err);
-      })
-    });
-  };
-  */
 }
-
-exports.main = main;

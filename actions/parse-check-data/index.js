@@ -19,6 +19,10 @@ var async = require('async');
 var fs = require('fs');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
+// local dev
+const path = require('path')
+require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
+
 /**
  * This action is triggered by a new check image added to a CouchDB database.
  * This action is idempotent. If it fails, it can be retried.
@@ -40,8 +44,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
  */
 
 /*
-
-main(params);
+main(process.env);
 */
 
 function main(params) {

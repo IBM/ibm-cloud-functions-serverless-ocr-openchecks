@@ -22,6 +22,7 @@
   "dependencies": {
     "@cloudant/cloudant": "^4.5.1",
     "async": "^3.2.3",
+    "dotenv": "^16.0.1",
     "fs": "^0.0.1-security",
     "gm": "^1.23.1",
     "ibm-cos-sdk": "^1.11.0",

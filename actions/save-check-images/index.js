@@ -28,6 +28,10 @@ const { promisify } = require('util');
 const { pipeline} = require('stream');
 
 
+// local env
+const path = require('path')
+require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
+
 /**
  * This action is invoked when new check images are found in object storage.
  * This action is idempotent. If it fails, it can be retried.
@@ -49,11 +53,9 @@ const { pipeline} = require('stream');
  * @return                                                  Standard OpenWhisk success/error response
  */
 
-/*
+// */
 
-main(params)
-*/
-
+main(process.env);
 
 function main(params) {
   // Configure database connection
@@ -309,7 +311,6 @@ function ObjectStorage(region, apiKey, osInstanceId) {
   }
 
   var cos = new ibm.S3(config);
-  
 
   self.authenticate = function(callback) {
     var options = {
@@ -347,6 +348,7 @@ function ObjectStorage(region, apiKey, osInstanceId) {
           'Authorization': "Bearer " + self.token
       }     
     }).then(data => {
+      console.log(data);
         const streamPipe = promisify(pipeline)
         resolve(streamPipe(data.body, outputStream));
     }).catch(err => {

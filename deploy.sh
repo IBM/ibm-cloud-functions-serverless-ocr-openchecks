@@ -104,7 +104,7 @@ function install() {
   --param CFXN_API_KEY "$CFXN_API_KEY"
 
   echo "Creating actions"
-  ibmcloud fn action create openchecks/find-new-checks actions/find-new-checks/find-new-checks.zip --kind nodejs:16
+  ibmcloud fn action create openchecks/find-new-checks actions/find-new-checks/find-new-checks.js --kind nodejs:16
   ibmcloud fn action create openchecks/save-check-images actions/save-check-images/save-check-images.zip --kind nodejs:16
   ibmcloud fn action create openchecks/parse-check-data actions/parse-check-data/parse-check-data.zip --kind nodejs:16
   ibmcloud fn action create openchecks/record-check-deposit actions/record-check-deposit/record-check-deposit.zip --kind nodejs:16
@@ -132,6 +132,7 @@ function uninstall() {
   echo -e "${RED}Uninstalling..."
 
   echo "Removing zipped files..."
+  rm -rf actions/find-new-checks/find-new-checks.zip
   rm -rf actions/save-check-images/save-check-images.zip
   rm -rf actions/record-check-deposit/record-check-deposit.zip
   rm -rf actions/parse-check-data/parse-check-data.zip
