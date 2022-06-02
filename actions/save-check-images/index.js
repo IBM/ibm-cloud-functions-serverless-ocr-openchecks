@@ -267,10 +267,8 @@ function main(params) {
           console.log("Deleting processed file from", params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME);
           os.deleteFile(params.OBJECT_STORAGE_INCOMING_CONTAINER_NAME, params.fileName, function(err) {
             if (err) {
-              console.log(err);
               return callback(err);
             } else {
-              console.log('deleted')
               return callback(null);
             }
           });
@@ -369,8 +367,10 @@ function ObjectStorage(region, apiKey, osInstanceId) {
         }
       ).then((response) => {
         resolve(response);
+        callback(null);
       }).catch((err) => {
         reject(err);
+        callback(err);
       })
     })
   };

@@ -44,8 +44,6 @@ main(process.env);
 
 
 function main(params) {
-
-  console.log("Params", params);
   console.log("Retrieving file list");
 
   var os = new ObjectStorage(

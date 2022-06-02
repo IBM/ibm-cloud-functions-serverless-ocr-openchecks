@@ -70,6 +70,7 @@ function main(params) {
 
   // We're only interested in changes to the database if they're inserts
   console.log('Calling')
+  console.log('params', params);
   if (!params.deleted) {
 
     return new Promise(function(resolve, reject) {
@@ -86,7 +87,6 @@ function main(params) {
 
           // OCR magic. Takes image, reads it, returns fromAccount, routingNumber
           function(access_token, callback) {
-            console.log(access_token);
             console.log('[parse-check-data.main] Executing OCR parse of check');
             asyncCallOcrParseAction("openchecks/parse-check-with-ocr",
               params.CLOUDANT_USERNAME,
@@ -217,28 +217,32 @@ function asyncCallOcrParseAction(actionName, cloudantUser, cloudantPass, databas
 
   var wsk = openwhisk(options);
 
-  wsk.actions.invoke({
-    "actionName": actionName,
-    "params": {
-      CLOUDANT_USERNAME: cloudantUser,
-      CLOUDANT_PASSWORD: cloudantPass,
-      CLOUDANT_HOST: params.CLOUDANT_HOST,
-      CLOUDANT_AUDITED_DATABASE: database,
-      IMAGE_ID: id,
-      ATTACHMENT_NAME: attachmentName
-    },
-    blocking: true
-  }).then(
-    function(activation) {
-      console.log(actionName, "[activation]", activation);
-      callback(null, activation.response);
-    }
-  ).catch(
-    function(error) {
-      console.log(actionName, "[error]", error);
-      callback(error);
-    }
-  );
+  getIAMToken(params.CLOUDANT_API_KEY).then((token) => {
+    wsk.actions.invoke({
+      "actionName": actionName,
+      "params": {
+        CLOUDANT_USERNAME: cloudantUser,
+        CLOUDANT_PASSWORD: cloudantPass,
+        CLOUDANT_HOST: params.CLOUDANT_HOST,
+        CLOUDANT_AUDITED_DATABASE: database,
+        CLOUDANT_ACCOUNT: params.CLOUDANT_ACCOUNT,
+        CLOUDANT_TOKEN: token,
+        IMAGE_ID: id,
+        ATTACHMENT_NAME: attachmentName
+      },
+      blocking: true
+    }).then(
+      function(activation) {
+        console.log(actionName, "[activation]", activation);
+        callback(null, activation.response);
+      }
+    ).catch(
+      function(error) {
+        console.log(actionName, "[error]", error);
+        callback(error);
+      }
+    );
+  });
 
 }
 

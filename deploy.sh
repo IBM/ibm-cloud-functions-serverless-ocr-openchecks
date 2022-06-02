@@ -87,6 +87,8 @@ function install() {
   --param CLOUDANT_USERNAME "$CLOUDANT_USERNAME" \
   --param CLOUDANT_PASSWORD "$CLOUDANT_PASSWORD" \
   --param CLOUDANT_HOST "$CLOUDANT_HOST" \
+  --param CLOUDANT_ACCOUNT "$CLOUDANT_ACCOUNT" \
+  --param CLOUDANT_API_KEY "$CLOUDANT_API_KEY" \
   --param CLOUDANT_ARCHIVED_DATABASE "$CLOUDANT_ARCHIVED_DATABASE" \
   --param CLOUDANT_AUDITED_DATABASE "$CLOUDANT_AUDITED_DATABASE" \
   --param CLOUDANT_PARSED_DATABASE "$CLOUDANT_PARSED_DATABASE" \
@@ -101,7 +103,7 @@ function install() {
   --param OW_HOST "$OW_HOST" \
   --param OW_API_KEY "$OW_API_KEY" \
   --param OW_NAMESPACE "$OW_NAMESPACE" \
-  --param CFXN_API_KEY "$CFXN_API_KEY"
+  --param CFXN_API_KEY "$CFXN_API_KEY" 
 
   echo "Creating actions"
   ibmcloud fn action create openchecks/find-new-checks actions/find-new-checks/find-new-checks.js --kind nodejs:16
@@ -118,7 +120,7 @@ function install() {
   # Build the Docker action. It's stored in the public Docker Hub.
   docker login --username "$DOCKER_HUB_USERNAME" --password "$DOCKER_HUB_PASSWORD"
   sh -c "cd dockerSkeleton && ./buildAndPush.sh $DOCKER_HUB_USERNAME/ocr-micr"
-  ibmcloud fn action create openchecks/parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr
+  ibmcloud fn action create openchecks/parse-check-with-ocr --docker $DOCKER_HUB_USERNAME/ocr-micr:0.0.1
 
   echo "Enabling rules"
   ibmcloud fn rule create fetch-checks poll-for-incoming-checks openchecks/find-new-checks
