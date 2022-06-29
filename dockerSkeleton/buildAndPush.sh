@@ -16,7 +16,10 @@ if [ $? -ne 0 ]; then
     echo "Docker build failed"
     exit
 fi
-docker push $IMAGE_NAME
+
+docker tag $IMAGE_NAME:latest $IMAGE_NAME:0.0.1
+
+docker push $IMAGE_NAME:0.0.1
 if [ $? -ne 0 ]; then
     echo "Docker push failed"
     exit

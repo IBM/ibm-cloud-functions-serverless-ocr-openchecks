@@ -20,8 +20,8 @@ import stat
 import json
 import subprocess
 import codecs
+from gevent.pywsgi import WSGIServer
 import flask
-from gevent.wsgi import WSGIServer
 
 class ActionRunner:
 
@@ -102,23 +102,27 @@ class ActionRunner:
         (o, e) = p.communicate()
 
         if o is not None:
-            process_output_lines = o.strip().split('\n')
-            last_line = process_output_lines[-1]
+            process_output_lines = o.strip().split(b'\n')
+            last_line = process_output_lines[-1].decode()
             for line in process_output_lines[:-1]:
+                line = line.decode()
                 sys.stdout.write('%s\n' % line)
         else:
             last_line = '{}'
 
+
         if e is not None:
-            sys.stderr.write(e)
+            sys.stderr.write(e.decode())
 
         try:
             json_output = json.loads(last_line)
             if isinstance(json_output, dict):
                 return (200, json_output)
             else:
+                print('execcption occured')
                 return error(last_line)
         except Exception:
+            print('hello exceptions')
             return error(last_line)
 
 proxy = flask.Flask(__name__)
@@ -181,6 +185,7 @@ def run():
             response = flask.jsonify(result)
             response.status_code = code
         except Exception as e:
+            print("Exception occurred while running.. ", e)
             response = flask.jsonify({'error': 'Internal error.' })
             response.status_code = 500
     else:
@@ -194,5 +199,7 @@ def main():
     server.serve_forever()
 
 if __name__ == '__main__':
+    print("Hellloooo World!")
     setRunner(ActionRunner())
+    print(runner.binary)
     main()

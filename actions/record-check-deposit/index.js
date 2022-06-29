@@ -15,9 +15,13 @@
  */
 
 var openwhisk = require('openwhisk');
-var Cloudant = require('cloudant');
+var Cloudant = require('@cloudant/cloudant');
 var request = require('request');
 var async = require('async');
+
+// local env
+// const path = require('path')
+// require('dotenv').config({path: path.resolve(__dirname, '../../local.env')})
 
 /**
  * This action is fired in response to newly parsed check data. It then contacts an external payment system and sends a notification.
@@ -28,6 +32,7 @@ var async = require('async');
  * 3. Send an email notification to the customer that their check has been processed.
  *
  * @param   params._id                           The id of the record in the Cloudant 'processed' database
+ * @param   params.CLOUDANT_HOST                 Cloudant endpoint (HOST)
  * @param   params.CLOUDANT_USERNAME             Cloudant username
  * @param   params.CLOUDANT_PASSWORD             Cloudant password
  * @param   params.CLOUDANT_PROCESSSED_DATABASE  Cloudant database to store the processed data to
@@ -37,12 +42,11 @@ var async = require('async');
  */
 function main(params) {
 
-  var wsk = openwhisk();
-
   // Configure database connection
   var cloudant = new Cloudant({
     account: params.CLOUDANT_USERNAME,
-    password: params.CLOUDANT_PASSWORD
+    password: params.CLOUDANT_PASSWORD,
+    url: params.CLOUDANT_HOST,
   });
   var processedDb = cloudant.db.use(params.CLOUDANT_PROCESSED_DATABASE);
 
@@ -145,3 +149,5 @@ function format(timestamp) {
   var warranty_expiration_date = new Date(timestamp * 1000);
   return (warranty_expiration_date.getMonth() + 1) + '/' + warranty_expiration_date.getDate() + '/' + warranty_expiration_date.getFullYear();
 }
+
+exports.main = main;
